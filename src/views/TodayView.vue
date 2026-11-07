@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../supabase'
 import { useAuth } from '../composables/useAuth'
+import { formatDateBn } from '../utils/dateFormat'
 
 const { profile } = useAuth()
 
@@ -124,9 +125,14 @@ onMounted(async () => {
     </div>
 
     <div v-else class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+
+
+
+
+
       <!-- Memo header -->
       <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
-        <p class="text-[12px] font-bold text-slate-700 text-center">🧾 দৈনিক ক্রয় মেমো</p>
+        <p class="text-[12px] font-bold text-slate-700 text-center">🧾 দৈনিক ক্রয় মেমো -- {{ formatDateBn(selectedDate) }}</p>
       </div>
 
       <!-- Column header -->

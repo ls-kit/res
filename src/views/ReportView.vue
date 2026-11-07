@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../supabase'
 import { useAuth } from '../composables/useAuth'
+import { formatDateBn } from '../utils/dateFormat'
 
 const { profile } = useAuth()
 const loading = ref(true)
@@ -279,7 +280,7 @@ onMounted(loadData)
             <input type="date" v-model="endDate" class="flex-1 h-9 px-2 rounded-lg border border-slate-200 text-[12px] outline-none bg-white">
           </template>
           <div v-else class="flex-1 bg-slate-100 rounded-lg h-9 flex items-center justify-center text-[11px] font-bold text-slate-600">
-            {{ startDate }} থেকে {{ endDate }}
+            {{ formatDateBn(startDate) }} থেকে {{ formatDateBn(endDate) }}
           </div>
         </div>
       </div>
@@ -380,7 +381,7 @@ onMounted(loadData)
                 <div v-for="day in groupedSupplierDrill" :key="day.date" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <button @click="toggleDate('sup-' + day.date)" class="w-full p-3 flex justify-between items-center bg-slate-50 active:bg-slate-100">
                     <div class="text-left">
-                    <p class="text-[12px] font-bold text-slate-800">{{ day.date }}</p>
+                    <p class="text-[12px] font-bold text-slate-800">{{ formatDateBn(day.date) }}</p>
                     <p class="text-[10px] text-slate-500">{{ day.items.length }} টি পণ্য</p>
                     </div>
                     <div class="flex items-center gap-2">
@@ -482,7 +483,7 @@ onMounted(loadData)
             <div class="divide-y divide-slate-100 max-h-[60vh] overflow-auto">
               <div v-for="(d, i) in dailyStats" :key="i" class="p-3 flex justify-between items-center">
                 <div>
-                  <p class="text-[12px] font-bold text-slate-800">{{ d.date }}</p>
+                  <p class="text-[12px] font-bold text-slate-800">{{ formatDateBn(d.date) }}</p>
                   <p class="text-[10px] text-slate-500">{{ d.items }} টি এন্ট্রি</p>
                 </div>
                 <div class="text-right">

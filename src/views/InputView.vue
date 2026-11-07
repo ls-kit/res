@@ -4,6 +4,8 @@ import { supabase } from '../supabase'
 
 import { useAuth } from '../composables/useAuth'
 import { watch } from 'vue' 
+import { formatDateBn } from '../utils/dateFormat'
+
 const { profile } = useAuth()
 
 // বর্তমানে কোন রেস্টুরেন্টের ডেটা দেখা হচ্ছে তা বের করা
@@ -626,7 +628,7 @@ function setFullPaid() {
       <div class="bg-white rounded-xl border border-slate-200 p-2.5 shadow-sm">
         <div class="flex items-center gap-1 mb-1.5 text-blue-700">
           <span class="text-sm">📅</span>
-          <p class="text-[11px] font-bold">তারিখ</p>
+          <p class="text-[11px] font-bold">তারিখ-{{ formatDateBn(meta.purchase_date) }}</p>
         </div>
         <input v-model="meta.purchase_date" type="date" class="w-full h-8 px-1 rounded-lg border border-slate-200 bg-slate-50 outline-none text-[12px] font-semibold text-slate-700" />
       </div>

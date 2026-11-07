@@ -7,6 +7,27 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const { profile } = useAuth()
 
+// import { supabase } from '../supabase' // উপরে ইমপোর্ট করুন (যদি আগে থেকে না থাকে)
+
+const restaurantName = ref('')
+const viewingName = ref(localStorage.getItem('viewing_restaurant_name'))
+
+async function loadRestaurantName() {
+  const viewingName = localStorage.getItem('viewing_restaurant_name')
+  if (viewingName) {
+    restaurantName.value = viewingName
+    return
+  }
+  if (profile.value?.restaurant_id) {
+    const { data } = await supabase
+      .from('restaurants')
+      .select('name')
+      .eq('id', profile.value.restaurant_id)
+      .single()
+    if (data) restaurantName.value = data.name
+  }
+}
+
 const loading = ref(true)
 const purchases = ref([])
 const activeTab = ref('overview') // 'overview' | 'report'
@@ -140,7 +161,11 @@ const donutData = computed(() => {
   return { gradient: gradient.slice(0, -2), items, total }
 })
 
-onMounted(loadData)
+onMounted(async () => {
+  await loadRestaurantName() // 🔥 এই লাইনটি যোগ করুন
+  await loadData() // (অথবা আপনার ডেটা লোডের ফাংশন)
+})
+
 </script>
 
 <template>
@@ -159,18 +184,33 @@ onMounted(loadData)
       <!-- ================= OVERVIEW TAB ================= -->
       <template v-if="activeTab === 'overview'">
         
-        <!-- Restaurant Info -->
-        <div class="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-slate-100">
-          <div class="flex items-center gap-2">
-            <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-xl">🍽️</div>
+      <!-- Premium Restaurant Header (Dashboard Top) -->
+      <div class="bg-gradient-to-r from-[#0b172a] to-slate-800 rounded-2xl p-4 shadow-lg text-white relative overflow-hidden mb-3">
+        <!-- Background Icon -->
+        <div class="absolute -right-4 -top-4 text-7xl opacity-10">🍽️</div>
+        
+        <div class="flex items-center justify-between relative z-10">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center text-xl border border-white/20 shadow-inner">
+              🏪
+            </div>
             <div>
-              <p class="text-[13px] font-bold text-slate-800">{{ profile?.name || 'আমার রেস্টুরেন্ট' }}</p>
-              <p class="text-[10px] text-slate-500">Premium Plan</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Welcome Back</p>
+                <span class="bg-emerald-500 text-white text-[8px] px-1.5 py-0.5 rounded font-bold">PREMIUM</span>
+              </div>
+              <h2 class="text-[16px] font-bold leading-tight mt-0.5 truncate max-w-[180px]">
+                {{ restaurantName || 'আমার রেস্টুরেন্ট' }}
+              </h2>
             </div>
           </div>
-          <button class="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-[11px] font-bold bg-blue-50 active:scale-95">Switch ⇄</button>
+          
+          <!-- Optional Switch/Arrow Button -->
+          <button class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20 active:scale-95">
+            <span class="text-sm text-emerald-400">➔</span>
+          </button>
         </div>
-
+      </div>
         <!-- KPI Cards (2x2) -->
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-3 shadow-sm relative overflow-hidden">
