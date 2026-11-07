@@ -25,6 +25,25 @@ function showToast(msg) {
   setTimeout(() => (toast.value = ''), 2500)
 }
 
+
+// const supplierStats = computed(() => {
+//   const map = {}
+//   filteredPurchases.value.forEach(p => {
+//     const sup = p.supplier || 'সাপ্লায়ার ছাড়া'
+//     if (!map[sup]) map[sup] = { total: 0, count: 0, items: [], due: 0 }
+//     map[sup].total += Number(p.total_price)
+//     map[sup].due += Number(p.due_amount) || 0
+//     map[sup].count += 1
+//     map[sup].items.push(p)
+//   })
+//   return Object.entries(map).map(([name, data]) => ({
+//     name, total: data.total, count: data.count, items: data.items, due: data.due,
+//     percent: totalSpend.value ? Math.round((data.total / totalSpend.value) * 100) : 0
+//   })).sort((a, b) => b.total - a.total)
+// })
+
+
+
 function getActiveRestaurantId() {
   const overriddenId = localStorage.getItem('viewing_restaurant_id')
   if (profile.value?.role === 'superadmin' && overriddenId) return overriddenId
@@ -90,13 +109,14 @@ const supplierStats = computed(() => {
   const map = {}
   filteredPurchases.value.forEach(p => {
     const sup = p.supplier || 'সাপ্লায়ার ছাড়া'
-    if (!map[sup]) map[sup] = { total: 0, count: 0, items: [] }
+    if (!map[sup]) map[sup] = { total: 0, count: 0, items: [], due: 0 }
     map[sup].total += Number(p.total_price)
+    map[sup].due += Number(p.due_amount) || 0
     map[sup].count += 1
     map[sup].items.push(p)
   })
   return Object.entries(map).map(([name, data]) => ({
-    name, total: data.total, count: data.count, items: data.items,
+    name, total: data.total, count: data.count, items: data.items, due: data.due,
     percent: totalSpend.value ? Math.round((data.total / totalSpend.value) * 100) : 0
   })).sort((a, b) => b.total - a.total)
 })
@@ -328,9 +348,13 @@ onMounted(loadData)
                   <p class="text-[12px] font-bold text-slate-800">{{ s.name }} ›</p>
                   <p class="text-[12px] font-bold text-emerald-600">৳ {{ fmt(s.total) }}</p>
                 </div>
-                <div class="flex justify-between items-center text-[10px] text-slate-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-500 mt-1">
                   <span>{{ s.count }} টি লেনদেন</span>
-                  <span>{{ s.percent }}%</span>
+                  <div class="text-right">
+                    <span class="mr-2">{{ s.percent }}%</span>
+                    <!-- 🔥 বাকি থাকলে দেখাবে -->
+                    <span v-if="s.due > 0" class="text-red-500 font-bold">বাকি: ৳{{ fmt(s.due) }}</span>
+                  </div>
                 </div>
                 <div class="w-full bg-slate-100 h-1.5 rounded-full mt-1.5">
                   <div class="bg-[#0b172a] h-1.5 rounded-full" :style="{ width: s.percent + '%' }"></div>

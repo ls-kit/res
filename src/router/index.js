@@ -9,6 +9,7 @@ import SuperAdminView from '../views/SuperAdminView.vue'
 // ইমপোর্টের নিচে যোগ করুন
 import DashboardView from '../views/DashboardView.vue'
 import ReportView from '../views/ReportView.vue'
+import CostControlView from '../views/CostControlView.vue'
 
 // routes অ্যারেতে যোগ করুন (today এর নিচে)
 
@@ -21,7 +22,8 @@ const routes = [
   { path: '/team', name: 'team', component: TeamView, meta: { requiresAuth: true, roles: ['admin'] } },
   { path: '/superadmin', name: 'superadmin', component: SuperAdminView, meta: { requiresAuth: true, roles: ['superadmin'] } },
   { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
-  { path: '/report', name: 'report', component: ReportView, meta: { requiresAuth: true, roles: ['admin']  } }
+  { path: '/report', name: 'report', component: ReportView, meta: { requiresAuth: true, roles: ['admin']  } },
+  { path: '/cost-control', name: 'cost-control', component: CostControlView, meta: { requiresAuth: true } }
 
 ]
 

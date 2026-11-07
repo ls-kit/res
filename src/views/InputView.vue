@@ -3,6 +3,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { supabase } from '../supabase'
 
 import { useAuth } from '../composables/useAuth'
+import { watch } from 'vue' 
 const { profile } = useAuth()
 
 // বর্তমানে কোন রেস্টুরেন্টের ডেটা দেখা হচ্ছে তা বের করা
@@ -403,18 +404,42 @@ async function saveMemo() {
   if (!valid.length && !meta.other_expense) return showToast('অন্তত একটি পণ্য বা অন্যান্য খরচ দিন')
   saving.value = true
 
+  // ১. মোট সাবটোটাল
   const sub = valid.reduce((s, r) => s + lineTotal(r), 0)
+  
+  // ২. মোট গ্র্যান্ড টোটাল (যা ইউজারকে দিতে হবে)
+  const finalTotal = grandTotal.value 
+  const paid = finalPaid.value
+  const due = dueAmount.value
+
+  // ৩. প্রতিটি পণ্যের পেলোড তৈরি (ডিসকাউন্ট ও বাকি আনুপাতিক হারে ভাগ করা)
   const rowsToInsert = valid.map(r => {
     const lt = lineTotal(r)
-    let share = 0
-    if (sub > 0) share = (discountAmount.value * (lt / sub))
     
+    // টোটাল ডিসকাউন্টের শেয়ার
+    let discountShare = 0
+    if (sub > 0) discountShare = (discountAmount.value * (lt / sub))
+    const itemFinalTotal = Math.max(0, +(lt - discountShare).toFixed(2))
+    
+    // বাকির শেয়ার (গ্র্যান্ড টোটালের ওপর ভিত্তি করে)
+    let itemPaid = 0
+    let itemDue = 0
+    if (finalTotal > 0) {
+      itemPaid = +(paid * (itemFinalTotal / finalTotal)).toFixed(2)
+      itemDue = +(itemFinalTotal - itemPaid).toFixed(2)
+    } else {
+      itemPaid = itemFinalTotal
+      itemDue = 0
+    }
+
     return {
       item_name: r.item_name.trim(),
       quantity: parseFloat(r.quantity),
       unit: r.unit,
       unit_price: r.unit_price === '' ? null : parseFloat(r.unit_price),
-      total_price: Math.max(0, +(lt - share).toFixed(2)),
+      total_price: itemFinalTotal,
+      paid_amount: itemPaid,
+      due_amount: itemDue,
       supplier: meta.supplier.trim() || null,
       note: meta.note.trim() || null,
       purchase_date: meta.purchase_date,
@@ -423,40 +448,57 @@ async function saveMemo() {
     }
   })
 
+  // ৪. অন্যান্য খরচ থাকলে সেটিও যোগ করা
   if (otherExp.value > 0) {
     const expenseType = meta.other_expense_note.trim()
     const finalName = expenseType ? `অতিরিক্ত খরচ - ${expenseType}` : 'অতিরিক্ত খরচ'
+    const expTotal = otherExp.value
     
+    let expPaid = 0
+    let expDue = 0
+    if (finalTotal > 0) {
+      expPaid = +(paid * (expTotal / finalTotal)).toFixed(2)
+      expDue = +(expTotal - expPaid).toFixed(2)
+    }
+
     rowsToInsert.push({
       item_name: finalName,
       quantity: 1,
       unit: 'বার',
-      unit_price: otherExp.value,
-      total_price: otherExp.value,
+      unit_price: expTotal,
+      total_price: expTotal,
+      paid_amount: expPaid,
+      due_amount: expDue,
       supplier: meta.supplier.trim() || null,
       note: null,
       purchase_date: meta.purchase_date,
-      status: 'pending'
+      status: 'pending',
+      restaurant_id: getActiveRestaurantId()
     })
   }
 
+  // ৫. ডেটাবেজে সেভ
   const { error } = await supabase.from('purchases').insert(rowsToInsert)
   if (error) { showToast('সেভ হয়নি: ' + error.message); saving.value = false; return }
 
+  // সাপ্লায়ার আপডেট
   if (meta.supplier.trim()) {
     const exists = supplierList.value.some(s => s.name.toLowerCase() === meta.supplier.trim().toLowerCase())
-    if (!exists) await supabase.from('suppliers').upsert({ 
-      name: meta.supplier.trim(),
-      restaurant_id: getActiveRestaurantId() // 🔥 যোগ করুন
-    }, { onConflict: 'name' })
+    if (!exists) {
+      await supabase.from('suppliers').upsert({ 
+        name: meta.supplier.trim(),
+        restaurant_id: getActiveRestaurantId()
+      }, { onConflict: 'name' })
+    }
   }
 
+  // আইটেম লিস্ট আপডেট
   for (const r of valid) {
     const price = r.unit_price === '' ? null : parseFloat(r.unit_price)
     const payload = { 
       name: r.item_name.trim(), 
       default_unit: r.unit,
-      restaurant_id: getActiveRestaurantId() // 🔥 যোগ করুন
+      restaurant_id: getActiveRestaurantId()
     }
     if (price != null) payload.last_price = price
     await supabase.from('items').upsert(payload, { onConflict: 'name' })
@@ -464,7 +506,15 @@ async function saveMemo() {
 
   await Promise.all([loadItems(), loadSuppliers(), loadStats()])
   showToast(`✅ সফলভাবে সেভ হয়েছে`)
-  rows.value = [makeRow()]; meta.discount_value = ''; meta.other_expense = ''; meta.other_expense_note = ''; meta.note = ''
+  
+  // রিসেট
+  rows.value = [makeRow()]
+  meta.discount_value = ''
+  meta.other_expense = ''
+  meta.other_expense_note = ''
+  meta.note = ''
+  paidAmount.value = '' // পরিশোধ রিসেট
+  
   saving.value = false
 }
 
@@ -486,6 +536,46 @@ onMounted(async () => {
   await loadSuppliers()
   await loadStats()
 })
+
+
+
+const paidAmount = ref('') // ইউজার যা টাকা দিবে
+// const grandTotal = computed(() => Math.max(0, subtotal.value - discountAmount.value + otherExp.value))
+
+// পরিশোধ ও বাকি হিসাব
+const finalPaid = computed(() => {
+  const p = parseFloat(paidAmount.value)
+  if (isNaN(p) || p < 0) return 0
+  return Math.min(p, grandTotal.value) // বিলের চেয়ে বেশি টাকা দিতে পারবে না
+})
+const dueAmount = computed(() => Math.max(0, grandTotal.value - finalPaid.value))
+
+
+// const grandTotal = computed(() => Math.max(0, subtotal.value - discountAmount.value + otherExp.value))
+// const paidAmount = ref('') 
+const isManualPaid = ref(false) // ইউজার নিজে টাইপ করেছে কিনা ট্র্যাক করতে
+// 🔥 জাদুকরি লজিক: বিল বাড়লে বা কমলে অটো সম্পূর্ণ টাকা বসে যাবে
+watch(grandTotal, (newTotal) => {
+  if (!isManualPaid.value) {
+    paidAmount.value = newTotal > 0 ? String(newTotal) : ''
+  }
+})
+// ইউজার ম্যানুয়ালি টাইপ করলে বাকি হিসাব হবে
+function onPaidInput() {
+  isManualPaid.value = true
+  if (paidAmount.value === String(grandTotal.value)) {
+    isManualPaid.value = false
+  }
+}
+function setFullPaid() {
+  isManualPaid.value = false
+  paidAmount.value = String(grandTotal.value)
+}
+
+
+
+
+
 </script>
 
 <template>
@@ -686,6 +776,44 @@ onMounted(async () => {
           <span class="font-bold text-[14px] text-slate-800">সর্বমোট</span>
           <span class="font-bold text-[16px] text-white bg-[#0b172a] px-2 py-0.5 rounded-lg">৳ {{ fmt(grandTotal) }}</span>
         </div>
+
+        <!-- পরিশোধ ও বাকি (সম্পূর্ণ নতুন ডিজাইন) -->
+        <div class="pt-3 mt-2 border-t-2 border-dashed border-slate-300 space-y-3">
+          
+          <!-- পরিশোধ (Paid) -->
+          <div class="flex justify-between items-center">
+            <span class="text-slate-700 font-bold text-[13px]">পরিশোধ (Paid)</span>
+            <div class="flex items-center gap-1.5">
+              <div class="flex items-center bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+                <span class="text-emerald-600 font-bold mr-1 text-[12px]">৳</span>
+                <input 
+                  v-model="paidAmount" 
+                  @input="onPaidInput"
+                  type="number" 
+                  placeholder="0" 
+                  class="w-16 bg-transparent text-right font-bold text-emerald-800 outline-none text-[14px]" 
+                />
+              </div>
+              <button 
+                @click="setFullPaid" 
+                class="bg-emerald-600 text-white text-[11px] px-2.5 py-1.5 rounded-lg font-bold active:scale-95 shadow-sm"
+              >সম্পূর্ণ</button>
+            </div>
+          </div>
+
+          <!-- বাকি (Due) - শুধু টাকা কম দিলে দেখাবে -->
+          <div v-if="dueAmount > 0" class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100">
+            <span class="text-red-700 font-bold text-[13px]">⚠️ বাকি (Due)</span>
+            <span class="font-bold text-[15px] text-red-600">৳ {{ fmt(dueAmount) }}</span>
+          </div>
+          
+          <!-- সম্পূর্ণ পরিশোধ হলে সবুজ টিক -->
+          <div v-else-if="grandTotal > 0 && dueAmount === 0" class="flex items-center gap-1.5 text-emerald-600 text-[11px] justify-end">
+            <span>✅</span> <span class="font-bold">সম্পূর্ণ পরিশোধিত</span>
+          </div>
+        </div>
+
+
       </div>
     </div>
 

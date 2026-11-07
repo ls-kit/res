@@ -55,7 +55,9 @@ const titles = {
   team: { main: 'টিম ম্যানেজমেন্ট', sub: 'কর্মী যোগ করুন' },
   superadmin: { main: 'সুপার অ্যাডমিন', sub: 'সব রেস্টুরেন্ট' },
   dashboard: { main: 'ড্যাশবোর্ড', sub: 'ব্যবসার সার্বিক অবস্থা' },
-  report: { main: 'রিপোর্ট', sub: 'ব্যবসার সম্পূর্ণ অ্যানালাইসিস' }
+  report: { main: 'রিপোর্ট', sub: 'ব্যবসার সম্পূর্ণ অ্যানালাইসিস' },
+  'cost-control': { main: 'কস্ট কন্ট্রোল', sub: 'খরচ ও দাম বিশ্লেষণ' }
+  
 }
 
 function goTo(path) {
@@ -203,6 +205,9 @@ onMounted(async () => {
           </button>
           <button @click="goTo('/report')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'report' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
             <span class="text-lg">📈</span> রিপোর্ট ও অ্যানালাইসিস
+          </button>
+          <button @click="goTo('/cost-control')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'cost-control' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
+            <span class="text-lg">⚖️</span> কস্ট কন্ট্রোল
           </button>
 
           <div class="border-t border-slate-200 my-2" v-if="profile?.role === 'admin' || profile?.role === 'superadmin'"></div>

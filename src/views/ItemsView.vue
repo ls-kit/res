@@ -1,9 +1,17 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../supabase'
+import { useAuth } from '../composables/useAuth'
 
-const UNITS = ['কেজি', 'গ্রাম', 'পিস', 'লিটার', 'মিলি', 'ডজন', 'বস্তা', 'প্যাকেট']
+const { profile } = useAuth()
 
+const UNITS = ['কেজি', 'গ্রাম', 'পিস', 'লিটার', 'মিলি', 'ডজন', 'বস্তা', 'প্যাকেট', 'বার']
+
+function getActiveRestaurantId() {
+  const overriddenId = localStorage.getItem('viewing_restaurant_id')
+  if (profile.value?.role === 'superadmin' && overriddenId) return overriddenId
+  return profile.value?.restaurant_id
+}
 
 function fmt(n) {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(n || 0)
@@ -37,15 +45,9 @@ const filteredSuppliersList = computed(() => {
   const q = supplierSearch.value.trim().toLowerCase()
   if (!q) return suppliers.value
   return suppliers.value.filter(
-    s =>
-      s.name.toLowerCase().includes(q) ||
-      (s.phone || '').includes(q)
+    s => s.name.toLowerCase().includes(q) || (s.phone || '').includes(q)
   )
 })
-
-// function fmt(n) {
-//   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(n || 0)
-// }
 
 function showToast(msg) {
   toast.value = msg
@@ -54,8 +56,14 @@ function showToast(msg) {
 
 /* items API */
 async function loadItems() {
+  const rid = getActiveRestaurantId()
+  if (!rid) return
   itemsLoading.value = true
-  const { data } = await supabase.from('items').select('*').order('name')
+  const { data } = await supabase
+    .from('items')
+    .select('*')
+    .eq('restaurant_id', rid)
+    .order('name')
   items.value = data || []
   itemsLoading.value = false
 }
@@ -65,7 +73,8 @@ async function addItem() {
   saving.value = true
   const payload = {
     name: itemForm.value.name.trim(),
-    default_unit: itemForm.value.default_unit
+    default_unit: itemForm.value.default_unit,
+    restaurant_id: getActiveRestaurantId()
   }
   if (itemForm.value.last_price !== '') {
     payload.last_price = parseFloat(itemForm.value.last_price)
@@ -86,8 +95,14 @@ async function removeItem(id) {
 
 /* suppliers API */
 async function loadSuppliers() {
+  const rid = getActiveRestaurantId()
+  if (!rid) return
   suppliersLoading.value = true
-  const { data } = await supabase.from('suppliers').select('*').order('name')
+  const { data } = await supabase
+    .from('suppliers')
+    .select('*')
+    .eq('restaurant_id', rid)
+    .order('name')
   suppliers.value = data || []
   suppliersLoading.value = false
 }
@@ -98,7 +113,8 @@ async function saveSupplier() {
   const payload = {
     name: supplierForm.value.name.trim(),
     phone: supplierForm.value.phone.trim() || null,
-    address: supplierForm.value.address.trim() || null
+    address: supplierForm.value.address.trim() || null,
+    restaurant_id: getActiveRestaurantId()
   }
   let error
   if (editingSupplier.value) {
@@ -137,9 +153,17 @@ async function removeSupplier(id) {
   await loadSuppliers()
 }
 
-onMounted(() => {
-  loadItems()
-  loadSuppliers()
+onMounted(async () => {
+  if (!profile.value) {
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (profile.value) { clearInterval(check); resolve() }
+      }, 100)
+      setTimeout(() => { clearInterval(check); resolve() }, 3000)
+    })
+  }
+  await loadItems()
+  await loadSuppliers()
 })
 </script>
 
@@ -200,8 +224,8 @@ onMounted(() => {
       />
 
       <!-- Table -->
-      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="grid grid-cols-12 gap-1 px-2.5 py-2 bg-slate-100 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div class="grid grid-cols-12 gap-1 px-2.5 py-2 bg-[#f8fafc] border-b border-slate-200 text-[11px] font-bold text-slate-500">
           <div class="col-span-6">পণ্য</div>
           <div class="col-span-3 text-center">একক</div>
           <div class="col-span-2 text-right">শেষ দাম</div>
@@ -216,11 +240,13 @@ onMounted(() => {
           <div
             v-for="item in filteredItemsList"
             :key="item.id"
-            class="grid grid-cols-12 gap-1 px-2.5 py-2 items-center text-[12px]"
+            class="grid grid-cols-12 gap-1 px-2.5 py-2.5 items-center text-[12px]"
           >
             <div class="col-span-6 font-medium text-slate-800 truncate">{{ item.name }}</div>
-            <div class="col-span-3 text-center text-slate-600">{{ item.default_unit || '—' }}</div>
-            <div class="col-span-2 text-right text-slate-700 font-medium">
+            <div class="col-span-3 text-center text-slate-600">
+              <span class="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-bold">{{ item.default_unit || '—' }}</span>
+            </div>
+            <div class="col-span-2 text-right text-slate-800 font-bold">
               {{ item.last_price ? fmt(item.last_price) : '—' }}
             </div>
             <div class="col-span-1 text-right">
@@ -233,7 +259,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <p class="text-[11px] text-slate-500 text-center">
+      <p class="text-[11px] text-slate-500 text-center font-medium">
         মোট {{ filteredItemsList.length }} টি পণ্য
       </p>
     </template>
@@ -287,8 +313,8 @@ onMounted(() => {
       />
 
       <!-- Table -->
-      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="grid grid-cols-12 gap-1 px-2.5 py-2 bg-slate-100 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div class="grid grid-cols-12 gap-1 px-2.5 py-2 bg-[#f8fafc] border-b border-slate-200 text-[11px] font-bold text-slate-500">
           <div class="col-span-6">নাম</div>
           <div class="col-span-4 text-center">মোবাইল</div>
           <div class="col-span-2 text-right">অ্যাকশন</div>
@@ -305,7 +331,7 @@ onMounted(() => {
             class="grid grid-cols-12 gap-1 px-2.5 py-2.5 items-center text-[12px]"
           >
             <div class="col-span-6 min-w-0">
-              <p class="font-medium text-slate-800 truncate">{{ s.name }}</p>
+              <p class="font-bold text-slate-800 truncate">{{ s.name }}</p>
               <p v-if="s.address" class="text-[10px] text-slate-400 truncate">
                 {{ s.address }}
               </p>
@@ -314,8 +340,8 @@ onMounted(() => {
               <a
                 v-if="s.phone"
                 :href="`tel:${s.phone}`"
-                class="text-emerald-700 font-medium text-[11px]"
-              >📱 {{ s.phone }}</a>
+                class="text-slate-700 font-medium text-[11px] underline decoration-slate-300 underline-offset-2"
+              >{{ s.phone }}</a>
               <span v-else class="text-slate-300 text-[11px]">—</span>
             </div>
             <div class="col-span-2 flex items-center justify-end gap-1.5">
@@ -333,7 +359,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <p class="text-[11px] text-slate-500 text-center">
+      <p class="text-[11px] text-slate-500 text-center font-medium">
         মোট {{ filteredSuppliersList.length }} জন সাপ্লায়ার
       </p>
     </template>
@@ -350,3 +376,8 @@ onMounted(() => {
     </div>
   </transition>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>
