@@ -162,8 +162,21 @@ const donutData = computed(() => {
 })
 
 onMounted(async () => {
-  await loadRestaurantName() // 🔥 এই লাইনটি যোগ করুন
-  await loadData() // (অথবা আপনার ডেটা লোডের ফাংশন)
+  // ১. প্রোফাইল লোড হওয়া পর্যন্ত অপেক্ষা করা (সর্বোচ্চ ৩ সেকেন্ড)
+  if (!profile.value) {
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (profile.value) { clearInterval(check); resolve() }
+      }, 100)
+      setTimeout(() => { clearInterval(check); resolve() }, 3000)
+    })
+  }
+
+  // ২. নাম লোড করা
+  await loadRestaurantName()
+
+  // ৩. ডেটা লোড করা
+  await loadData()
 })
 
 </script>
