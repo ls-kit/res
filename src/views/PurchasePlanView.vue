@@ -298,6 +298,9 @@ onMounted(loadData)
         <div>
           <p class="text-[12px] font-bold">সম্ভাব্য সর্বোচ্চ খরচ</p>
           <p class="text-[9px] text-white/60">(দাম কিছুটা কম হতে পারে)</p>
+            <button @click="saveDraft" :disabled="savingDraft" class="bg-blue-600 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white active:scale-95 flex items-center gap-1.5 disabled:opacity-50">
+            {{ savingDraft ? '...' : '💾 ড্রাফট সেভ' }}
+            </button>
         </div>
         <p class="text-[20px] font-bold text-emerald-400">৳ {{ fmt(totalEstCost) }}</p>
       </div>
