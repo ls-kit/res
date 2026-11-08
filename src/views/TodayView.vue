@@ -6,6 +6,8 @@ import { formatDateBn } from '../utils/dateFormat'
 
 const { profile } = useAuth()
 
+const suppliersList = ref([]) 
+
 function getActiveRestaurantId() {
   const overriddenId = localStorage.getItem('viewing_restaurant_id')
   if (profile.value?.role === 'superadmin' && overriddenId) return overriddenId
@@ -21,6 +23,7 @@ function todayISO() {
 const purchases = ref([])
 const supplierPhones = ref({})
 const loading = ref(true)
+const saving = ref(false)
 const selectedDate = ref(todayISO())
 
 const groups = computed(() => {
@@ -54,12 +57,13 @@ async function load() {
 
   const [purchasesRes, suppliersRes] = await Promise.all([
     supabase.from('purchases').select('*').eq('restaurant_id', rid).eq('purchase_date', selectedDate.value).order('created_at', { ascending: true }),
-    supabase.from('suppliers').select('name, phone').eq('restaurant_id', rid)
+    supabase.from('suppliers').select('*').eq('restaurant_id', rid)
   ])
 
   if (!purchasesRes.error) purchases.value = purchasesRes.data || []
 
   if (!suppliersRes.error) {
+    suppliersList.value = suppliersRes.data || []
     const map = {}
     for (const s of suppliersRes.data || []) {
       if (s.phone) map[s.name] = s.phone
@@ -100,6 +104,82 @@ function adjustmentOf(p) {
   return total - q * up
 }
 
+
+
+// ড্রাফট স্টেট
+const drafts = ref([])
+const showDraftModal = ref(false)
+const selectedDraftId = ref(null)
+const draftItems = ref([])
+
+// ড্রাফট লোড ফাংশন
+async function loadDrafts() {
+  const rid = getActiveRestaurantId()
+  if (!rid) return
+  const { data, error } = await supabase
+    .from('purchase_drafts')
+    .select('*')
+    .eq('restaurant_id', rid)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+  
+  if (!error) {
+    drafts.value = data || []
+  }
+}
+
+// ড্রাফট ওপেন করা
+function openDraft(draft) {
+  selectedDraftId.value = draft.id
+  draftItems.value = JSON.parse(JSON.stringify(draft.items))
+  showDraftModal.value = true
+}
+
+// ড্রাফট নিশ্চিত করা (সেভ)
+async function confirmDraft() {
+  saving.value = true
+  
+  const rowsToInsert = draftItems.value.map(p => {
+    const price = Number(p.max_price) || 0
+    const qty = Number(p.quantity) || 1
+    const total = price * qty
+    
+    return {
+      item_name: p.item_name,
+      quantity: qty,
+      unit: p.unit,
+      unit_price: price,
+      total_price: total,
+      paid_amount: total,
+      due_amount: 0,
+      supplier: p.supplier || null,
+      note: 'ড্রাফট থেকে যোগ করা হয়েছে',
+      purchase_date: selectedDate.value,
+      status: 'pending',
+      restaurant_id: getActiveRestaurantId()
+    }
+  })
+
+  const { error } = await supabase.from('purchases').insert(rowsToInsert)
+  if (error) { 
+    showToast('সেভ হয়নি: ' + error.message)
+    saving.value = false
+    return 
+  }
+
+  await supabase.from('purchase_drafts').delete().eq('id', selectedDraftId.value)
+  
+  await load()
+  await loadDrafts()
+  
+  showDraftModal.value = false
+  saving.value = false
+  showToast('✅ সফলভাবে পারচেজে যোগ হয়েছে!')
+}
+
+
+
+
 onMounted(async () => {
   if (!profile.value) {
     await new Promise(resolve => {
@@ -110,12 +190,31 @@ onMounted(async () => {
     })
   }
   await load()
+  await loadDrafts()
 })
 </script>
 
 <template>
   <div class="px-3 pt-3 space-y-3">
     <input v-model="selectedDate" type="date" @change="load" class="w-full h-10 px-3 rounded-lg bg-white border border-slate-200 outline-none text-sm" />
+
+
+<!-- 🔥 ড্রাফট লিস্ট সেকশন -->
+<div v-if="drafts.length" class="bg-blue-50 border border-blue-200 rounded-xl p-3 shadow-sm space-y-2">
+  <p class="text-[12px] font-bold text-blue-800 flex items-center gap-1">
+    <span>📝</span> সেভ করা বাজার লিস্ট
+  </p>
+  <div v-for="d in drafts" :key="d.id" class="flex justify-between items-center bg-white p-2 rounded-lg border border-blue-100">
+    <div>
+      <p class="text-[12px] font-bold text-slate-700">{{ d.items.length }} টি পণ্য</p>
+      <p class="text-[10px] text-slate-500">{{ new Date(d.created_at).toLocaleDateString('bn-BD') }}</p>
+    </div>
+    <button @click="openDraft(d)" class="px-3 py-1.5 bg-blue-600 text-white rounded text-[11px] font-bold active:scale-95">
+      লোড করুন
+    </button>
+  </div>
+</div>
+
 
     <div v-if="loading" class="text-center text-slate-400 py-10 text-sm">লোড হচ্ছে...</div>
 
@@ -125,9 +224,6 @@ onMounted(async () => {
     </div>
 
     <div v-else class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-
-
-
 
 
       <!-- Memo header -->
@@ -225,4 +321,81 @@ onMounted(async () => {
     </div>
     <div class="h-2"></div>
   </div>
+
+<!-- 🔥 ড্রাফট কনফার্ম মডাল -->
+<div v-if="showDraftModal" class="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm" @click.self="showDraftModal = false">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
+    
+    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+      <div>
+        <p class="text-[14px] font-bold text-slate-800">বাজার নিশ্চিত করুন</p>
+        <p class="text-[11px] text-slate-500">প্রয়োজনে দাম এডিট করে সেভ করুন</p>
+      </div>
+      <button @click="showDraftModal = false" class="text-slate-400 text-lg">✕</button>
+    </div>
+
+    <div class="p-2 overflow-auto flex-1 bg-slate-50">
+  <!-- হেডার (কলাম নাম) -->
+  <div class="grid grid-cols-12 gap-1 px-1 py-1.5 bg-slate-200 rounded-t text-[10px] font-bold text-slate-600 mb-1">
+    <div class="col-span-3">পণ্য</div>
+    <div class="col-span-2 text-center">পরিমাণ</div>
+    <div class="col-span-2 text-right">দর (৳)</div>
+    <div class="col-span-2 text-right">মোট (৳)</div>
+    <div class="col-span-3 pl-1">সাপ্লায়ার</div>
+  </div>
+
+  <!-- আইটেম লিস্ট -->
+  <div class="space-y-1.5">
+    <div v-for="(p, i) in draftItems" :key="i" class="grid grid-cols-12 gap-1 items-center bg-white p-1.5 rounded-lg shadow-sm border border-slate-200">
+      
+      <!-- ১. পণ্যের নাম -->
+      <div class="col-span-3 min-w-0">
+        <p class="text-[11px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
+        <p class="text-[8px] text-slate-400">{{ p.unit }}</p>
+      </div>
+
+      <!-- ২. পরিমাণ -->
+      <div class="col-span-2">
+        <input v-model="p.quantity" type="number" inputmode="decimal" class="w-full h-7 px-1 border border-slate-300 rounded text-[11px] text-center font-bold outline-none focus:border-blue-500" />
+      </div>
+
+      <!-- ৩. দর -->
+      <div class="col-span-2">
+        <input v-model="p.max_price" type="number" inputmode="decimal" class="w-full h-7 px-1 border border-slate-300 rounded text-[11px] text-right font-bold outline-none focus:border-blue-500" />
+      </div>
+
+      <!-- ৪. লাইন মোট (এডিটযোগ্য) -->
+      <div class="col-span-2">
+        <input 
+          v-model="p.line_total" 
+          type="number" 
+          inputmode="decimal" 
+          placeholder="0"
+          class="w-full h-7 px-1 border border-amber-300 bg-amber-50 rounded text-[11px] text-right font-bold text-amber-900 outline-none focus:border-amber-500" 
+        />
+      </div>
+
+      <!-- ৫. সাপ্লায়ার (ছোট ড্রপডাউন) -->
+      <div class="col-span-3 pl-0.5">
+        <select v-model="p.supplier" class="w-full h-7 px-1 border border-slate-300 rounded text-[9px] bg-white outline-none focus:border-blue-500 truncate">
+          <option value="">ছাড়া</option>
+          <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+    </div>
+
+    <div class="p-4 border-t border-slate-100 flex gap-2 bg-slate-50 rounded-b-2xl">
+      <button @click="showDraftModal = false" class="flex-1 h-11 rounded-xl bg-slate-200 text-slate-700 font-bold text-[13px]">বাতিল</button>
+      <button @click="confirmDraft" :disabled="saving" class="flex-[2] h-11 rounded-xl bg-emerald-600 text-white font-bold text-[13px] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5">
+        <span>✓</span> {{ saving ? 'সেভ হচ্ছে...' : 'সব কিনেছি (সেভ করুন)' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+
 </template>

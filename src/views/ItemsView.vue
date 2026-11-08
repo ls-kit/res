@@ -19,6 +19,7 @@ function fmt(n) {
 
 const activeTab = ref('items')
 
+const addedQuickly = ref({})
 /* items */
 const items = ref([])
 const itemsLoading = ref(true)
@@ -49,6 +50,59 @@ const filteredSuppliersList = computed(() => {
   )
 })
 
+
+
+// গ্লোবাল পণ্য লোড ও অ্যাড করার ফাংশন
+const globalItems = ref([])
+const showGlobalList = ref(false)
+const addingGlobal = ref(false)
+
+async function loadGlobalItems() {
+  const { data } = await supabase
+    .from('items')
+    .select('*')
+    .eq('is_global', true)
+    .order('name')
+  
+  // যেগুলো ইতিমধ্যেই নিজের তালিকায় আছে, সেগুলো বাদ দেওয়া
+  const existingNames = items.value.map(i => i.name.toLowerCase())
+  globalItems.value = (data || []).filter(g => !existingNames.includes(g.name.toLowerCase()))
+}
+
+function openGlobalList() {
+  addedQuickly.value = {}
+  showGlobalList.value = true
+  loadGlobalItems()
+}
+
+async function addGlobalItem(g) {
+  addingGlobal.value = true
+  const payload = {
+    name: g.name,
+    default_unit: g.default_unit,
+    is_global: false,
+    restaurant_id: getActiveRestaurantId()
+  }
+  
+  const { error } = await supabase.from('items').insert(payload)
+  addingGlobal.value = false
+  
+  if (error) {
+    if (error.code === '23505') return showToast('এই পণ্যটি ইতিমধ্যেই আপনার তালিকায় আছে!')
+    return showToast('যোগ হয়নি: ' + error.message)
+  }
+  
+  // 🔥 সফল হলে চেকমার্ক ট্র্যাক করা
+  addedQuickly.value[g.id] = true
+  
+  await loadItems()
+  // await loadGlobalItems() // এটি সরিয়ে দেওয়া হলো যাতে লিস্টে দেখিয়ে যায়
+  showToast(`✅ ${g.name} যোগ হয়েছে`)
+}
+
+
+
+
 function showToast(msg) {
   toast.value = msg
   setTimeout(() => (toast.value = ''), 2500)
@@ -74,14 +128,22 @@ async function addItem() {
   const payload = {
     name: itemForm.value.name.trim(),
     default_unit: itemForm.value.default_unit,
+    is_global: false,
     restaurant_id: getActiveRestaurantId()
   }
   if (itemForm.value.last_price !== '') {
     payload.last_price = parseFloat(itemForm.value.last_price)
   }
-  const { error } = await supabase.from('items').upsert(payload, { onConflict: 'name' })
+  
+  // upsert বাদ দিয়ে insert
+  const { error } = await supabase.from('items').insert(payload)
   saving.value = false
-  if (error) return showToast('যোগ হয়নি: ' + error.message)
+  
+  if (error) {
+    if (error.code === '23505') return showToast('এই পণ্যটি আপনার তালিকায় আগেই আছে!')
+    return showToast('যোগ হয়নি: ' + error.message)
+  }
+  
   itemForm.value = { name: '', default_unit: 'কেজি', last_price: '' }
   await loadItems()
   showToast('✅ পণ্য যোগ হয়েছে')
@@ -215,6 +277,56 @@ onMounted(async () => {
           class="w-full h-10 rounded-lg bg-brand text-white font-semibold text-[13px] active:scale-[0.98] transition disabled:opacity-60"
         >+ যোগ করুন</button>
       </div>
+
+
+      <!-- 🔥 গ্লোবাল পণ্য থেকে যোগ করার বাটন -->
+      <button @click="showGlobalList = true; loadGlobalItems()" class="w-full h-10 rounded-lg bg-blue-50 text-blue-600 font-bold text-[13px] border border-blue-200 active:scale-[0.98] transition flex items-center justify-center gap-1.5">
+        <span>✨</span> রেডি লিস্ট থেকে পণ্য যোগ করুন
+      </button>
+
+      <!-- গ্লোবাল পণ্যর মডাল -->
+      <div v-if="showGlobalList" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm" @click.self="showGlobalList = false">
+        <div class="bg-white rounded-2xl w-full max-w-sm max-h-[80vh] flex flex-col shadow-2xl">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <p class="text-[14px] font-bold text-slate-800">রেডি পণ্য তালিকা</p>
+              <p class="text-[10px] text-slate-500">এক ক্লিকে আপনার তালিকায় যোগ করুন</p>
+            </div>
+            <button @click="showGlobalList = false" class="text-slate-400 text-lg">✕</button>
+          </div>
+          
+            <div class="p-3 overflow-auto flex-1 bg-slate-50 grid grid-cols-2 gap-2">
+              <button 
+                v-for="g in globalItems" 
+                :key="g.id" 
+                @click="addGlobalItem(g)"
+                :disabled="addingGlobal || addedQuickly[g.id]"
+                class="bg-white p-2.5 rounded-lg border shadow-sm flex items-center justify-between text-left active:scale-95 transition-colors disabled:opacity-70"
+                :class="addedQuickly[g.id] ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'"
+              >
+                <div>
+                  <p class="text-[12px] font-bold text-slate-800" :class="addedQuickly[g.id] ? 'text-emerald-800' : ''">{{ g.name }}</p>
+                  <p class="text-[9px] text-slate-500" :class="addedQuickly[g.id] ? 'text-emerald-600' : ''">{{ g.default_unit }}</p>
+                </div>
+                
+                <!-- চেকমার্ক / প্লাস আইকন -->
+                <div v-if="addedQuickly[g.id]" class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <div v-else class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">
+                  +
+                </div>
+              </button>
+              
+              <!-- খালি লিস্টের মেসেজ -->
+              <div v-if="!globalItems.length" class="col-span-2 text-center text-slate-400 text-[12px] py-6">
+                সব পণ্য ইতিমধ্যেই যোগ করা আছে!
+              </div>
+            </div>
+        </div>
+      </div>
+
+
 
       <input
         v-model="itemSearch"

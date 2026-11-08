@@ -30,6 +30,73 @@ async function loadRestaurants() {
   loading.value = false
 }
 
+
+
+const showGlobalItems = ref(false) // Collapse/Expand স্টেট
+const bulkInput = ref('') // Bulk Add এর জন্য
+/* ---------- Global Items Logic ---------- */
+const globalItems = ref([])
+const newGlobalItem = ref({ name: '', unit: 'কেজি' })
+const globalUnits = ['কেজি', 'পিস', 'লিটার', 'প্যাকেট', 'গ্রাম']
+
+async function loadGlobalItems() {
+  const { data } = await supabase.from('items').select('*').eq('is_global', true).order('name')
+  globalItems.value = data || []
+}
+
+async function addGlobalItem() {
+  if (!newGlobalItem.value.name.trim()) return showToast('পণ্যের নাম দিন')
+  
+  const { error } = await supabase.from('items').insert({
+    name: newGlobalItem.value.name.trim(),
+    default_unit: newGlobalItem.value.unit,
+    is_global: true,
+    restaurant_id: null
+  })
+  
+  if (error) {
+    if (error.code === '23505') return showToast('এই পণ্যটি আগেই আছে!')
+    return showToast('যোগ হয়নি: ' + error.message)
+  }
+  
+  newGlobalItem.value.name = ''
+  await loadGlobalItems()
+  showToast('✅ নতুন পণ্য যোগ হয়েছে')
+}
+
+async function removeGlobalItem(id) {
+  if (!confirm('পণ্যটি রেডি লিস্ট থেকে মুছবেন?')) return
+  await supabase.from('items').delete().eq('id', id)
+  await loadGlobalItems()
+  showToast('✅ মুছে ফেলা হয়েছে')
+}
+async function addBulkGlobalItems() {
+  if (!bulkInput.value.trim()) return
+  // কমা দিয়ে আলাদা করা নামগুলোকে ভাগ করা
+  const names = bulkInput.value.split(',').map(n => n.trim()).filter(n => n)
+  
+  const payloads = names.map(name => ({
+    name,
+    default_unit: 'কেজি',
+    is_global: true,
+    restaurant_id: null
+  }))
+
+  const { error } = await supabase.from('items').insert(payloads)
+  
+  if (error) {
+    if (error.code === '23505') return showToast('কিছু পণ্য আগেই আছে, বাকিগুলো চেক করুন!')
+    return showToast('যোগ হয়নি: ' + error.message)
+  }
+  
+  bulkInput.value = ''
+  await loadGlobalItems()
+  showToast(`✅ ${names.length} টি পণ্য যোগ হয়েছে`)
+}
+
+
+
+
 // স্ট্যাটাস পরিবর্তন (Active/Inactive)
 async function toggleStatus(r) {
   const newStatus = r.status === 'active' ? 'inactive' : 'active'
@@ -80,7 +147,10 @@ function formatTime(iso) {
   return new Intl.DateTimeFormat('bn-BD', { dateStyle: 'medium', timeStyle: 'short', hour12: true }).format(new Date(iso))
 }
 
-onMounted(loadRestaurants)
+onMounted(async () => {
+  await loadRestaurants()
+  await loadGlobalItems()
+})
 </script>
 
 <template>
@@ -129,6 +199,61 @@ onMounted(loadRestaurants)
         </div>
       </div>
     </div>
+
+
+
+<!-- Global Items Section -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm mt-4 mb-8 overflow-hidden">
+  <!-- Header with Collapse -->
+  <button @click="showGlobalItems = !showGlobalItems" class="w-full p-4 flex items-center justify-between bg-white active:bg-slate-50">
+    <div class="flex items-center gap-2 text-left">
+      <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">✨</div>
+      <div>
+        <p class="text-[13px] font-bold text-slate-800">কমন পণ্য তালিকা ({{ globalItems.length }})</p>
+        <p class="text-[10px] text-slate-500">রেস্টুরেন্টগুলো এখান থেকে পণ্য বেছে নিতে পারবে</p>
+      </div>
+    </div>
+    <span class="text-slate-400 text-lg transition-transform duration-300" :class="showGlobalItems ? 'rotate-180' : ''">▼</span>
+  </button>
+
+  <!-- Expanded Content -->
+  <div v-if="showGlobalItems" class="p-4 border-t border-slate-100 space-y-3 bg-slate-50/50">
+    
+    <!-- Bulk Add -->
+    <div>
+      <p class="text-[11px] font-bold text-slate-600 mb-1">বাল্ক অ্যাড (একসাথে অনেক পণ্য)</p>
+      <div class="flex gap-1.5">
+        <input v-model="bulkInput" type="text" placeholder="আলু, পেঁয়াজ, রসুন (কমা দিয়ে লিখুন)" class="flex-1 h-9 px-2 rounded-md border border-slate-200 bg-white text-[12px] outline-none focus:border-blue-500" />
+        <button @click="addBulkGlobalItems" class="h-9 px-3 bg-blue-600 text-white rounded-md text-[11px] font-bold active:scale-95">যোগ</button>
+      </div>
+    </div>
+
+    <!-- Single Add -->
+    <div>
+      <p class="text-[11px] font-bold text-slate-600 mb-1">একক অ্যাড</p>
+      <div class="flex gap-1.5">
+        <input v-model="newGlobalItem.name" type="text" placeholder="পণ্যের নাম..." class="flex-1 h-9 px-2 rounded-md border border-slate-200 bg-white text-[12px] outline-none focus:border-blue-500" />
+        <select v-model="newGlobalItem.unit" class="h-9 px-1 rounded-md border border-slate-200 bg-white text-[12px] outline-none">
+          <option v-for="u in globalUnits" :key="u" :value="u">{{ u }}</option>
+        </select>
+        <button @click="addGlobalItem" class="h-9 px-3 bg-[#0b172a] text-white rounded-md text-[11px] font-bold active:scale-95">+</button>
+      </div>
+    </div>
+
+    <!-- Item List with Delete -->
+    <div class="pt-2 border-t border-slate-200">
+      <div class="flex flex-wrap gap-1.5 max-h-40 overflow-auto pb-1">
+        <div v-for="g in globalItems" :key="g.id" class="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] flex items-center gap-1.5 text-slate-700 shadow-sm">
+          <span>{{ g.name }} <span class="text-[9px] text-slate-400">({{ g.default_unit }})</span></span>
+          <button @click="removeGlobalItem(g.id)" class="text-red-400 hover:text-red-600 font-bold ml-0.5">✕</button>
+        </div>
+        <p v-if="!globalItems.length" class="text-[11px] text-slate-400 italic">কোনো কমন পণ্য নেই</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
   </div>
 
   <!-- Users Modal -->

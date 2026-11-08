@@ -209,6 +209,9 @@ onMounted(async () => {
           <button @click="goTo('/cost-control')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'cost-control' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
             <span class="text-lg">⚖️</span> কস্ট কন্ট্রোল
           </button>
+          <button @click="goTo('/purchase-plan')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'purchase-plan' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
+            <span class="text-lg">🛒</span> বাজার পরিকল্পনা
+          </button>
 
           <div class="border-t border-slate-200 my-2" v-if="profile?.role === 'admin' || profile?.role === 'superadmin'"></div>
 
