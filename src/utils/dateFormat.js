@@ -2,9 +2,18 @@
 
 export function formatDateBn(dateStr) {
   if (!dateStr) return ''
-  const d = new Date(dateStr + 'T00:00:00') 
   
-  // Intl দিয়ে তারিখ বের করা (এখানে কমা আসে)
+  let d
+  // যদি টাইমস্ট্যাম্প (T বা Z) থাকে, তবে সরাসরি Date অবজেক্টে রূপান্তর করব
+  if (String(dateStr).includes('T')) {
+    d = new Date(dateStr)
+  } else {
+    d = new Date(dateStr + 'T00:00:00')
+  }
+
+  // চেক করা তারিখটি ভ্যালিড কিনা
+  if (isNaN(d.getTime())) return ''
+
   const formatted = new Intl.DateTimeFormat('bn-BD', {
     day: 'numeric',
     month: 'long',
