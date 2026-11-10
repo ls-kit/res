@@ -6,33 +6,62 @@ const props = defineProps({ id: { type: [String, Number], required: true } })
 const emit = defineEmits(['delete'])
 
 const startX = ref(0)
+const startY = ref(0)
 const currentX = ref(0)
 const isSwiping = ref(false)
+const isHorizontalSwipe = ref(null) // 🔥 নতুন: দিক বুঝার জন্য
 
 function onStart(e) {
   startX.value = e.touches ? e.touches[0].clientX : e.clientX
+  startY.value = e.touches ? e.touches[0].clientY : e.clientY
   isSwiping.value = true
   currentX.value = 0
+  isHorizontalSwipe.value = null
 }
 
 function onMove(e) {
   if (!isSwiping.value) return
+  
   const x = e.touches ? e.touches[0].clientX : e.clientX
-  const diff = startX.value - x
-  if (diff > 0) currentX.value = diff
+  const y = e.touches ? e.touches[0].clientY : e.clientY
+  
+  const diffX = startX.value - x
+  const diffY = startY.value - y
+
+  // 🔥 যদি প্রথমবার মুভ করে, তখনই চেক করব সে কি ডানে-বামে নাকি ওপরে-নিচে টানছে
+  if (isHorizontalSwipe.value === null) {
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      isHorizontalSwipe.value = true // ডানে-বামে টানছে (সোয়ার্প)
+    } else {
+      isHorizontalSwipe.value = false // ওপরে-নিচে টানছে (স্ক্রল)
+      isSwiping.value = false // সোয়ার্প বাতিল
+      return
+    }
+  }
+
+  // যদি ডানে-বামে টানে, তবেই শুধু সোয়ার্প ইফেক্ট দেখাবে
+  if (isHorizontalSwipe.value === true) {
+    if (diffX > 0) {
+      // 🔥 এখানে preventDefault দিলে স্ক্রল আটকে যাবে, তাই শুধু সোয়ার্পের সময় আটকাচ্ছি
+      if (e.cancelable) e.preventDefault()
+      currentX.value = diffX
+    }
+  }
 }
 
 function onEnd() {
   if (!isSwiping.value) return
   isSwiping.value = false
   
-  if (currentX.value > 70) {
+  if (isHorizontalSwipe.value === true && currentX.value > 70) {
     playSound('delete')
     currentX.value = 0
     emit('delete', props.id)
   } else {
     currentX.value = 0
   }
+  
+  isHorizontalSwipe.value = null
 }
 </script>
 
@@ -52,7 +81,7 @@ function onEnd() {
         opacity: currentX > 70 ? 0.5 : 1
       }"
       @touchstart="onStart"
-      @touchmove.prevent="onMove"
+      @touchmove="onMove"
       @touchend="onEnd"
       @mousedown="onStart"
       @mousemove="onMove"
