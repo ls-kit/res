@@ -15,12 +15,10 @@ const loading = ref(true)
 const saving = ref(false)
 const selectedDate = ref(new Date().toISOString().slice(0, 10))
 
-// 🔥 Undo State (মেইন পেজ)
+// 🔥 Undo State
 const recentlyDeletedMain = ref(null)
-let undoTimeoutMain = null
-
-// 🔥 Undo State (ড্রাফট পপআপ)
 const recentlyDeletedDraft = ref(null)
+let undoTimeoutMain = null
 let undoTimeoutDraft = null
 
 // ড্রাফট স্টেট
@@ -28,6 +26,9 @@ const drafts = ref([])
 const showDraftModal = ref(false)
 const selectedDraftId = ref(null)
 const draftItems = ref([])
+const draftSupplierPaid = ref({}) // দোকানভিত্তিক পরিশোধ
+
+const paidHighlight = ref({}) // কোন দোকানের Paid আপডেট হলো তা ট্র্যাক করতে
 
 function getActiveRestaurantId() {
   const overriddenId = localStorage.getItem('viewing_restaurant_id')
@@ -53,10 +54,59 @@ const groups = computed(() => {
 const totalSum = computed(() => purchases.value.reduce((s, p) => s + (Number(p.total_price) || 0), 0))
 const totalDue = computed(() => purchases.value.reduce((s, p) => s + (Number(p.due_amount) || 0), 0))
 
+// 🔥 ড্রাফট পপআপের গ্রুপিং ও Paid/Due হিসাব
+const draftGroups = computed(() => {
+  const map = new Map()
+  draftItems.value.forEach(p => {
+    const key = p.supplier || '— সাপ্লায়ার ছাড়া —'
+    if (!map.has(key)) map.set(key, [])
+    map.get(key).push(p)
+  })
+  
+  return [...map.entries()].map(([supplier, list]) => {
+    const total = list.reduce((s, p) => s + (Number(p.line_total) || 0), 0)
+    const paid = Number(draftSupplierPaid.value[supplier]) || 0
+    const due = Math.max(0, total - paid)
+    return { supplier, list, total, paid, due }
+  })
+})
+
+const draftTotal = computed(() => draftGroups.value.reduce((s, g) => s + g.total, 0))
+const draftTotalDue = computed(() => draftGroups.value.reduce((s, g) => s + g.due, 0))
+
+// 🔥 Paid ও সাবটোটাল অটো-আপডেট এবং ব্লিংক লজিক
+watch(draftItems, (newItems) => {
+  if (!showDraftModal.value) return
+  
+  const currentTotals = {}
+  newItems.forEach(p => {
+    const key = p.supplier || '— সাপ্লায়ার ছাড়া —'
+    if (!currentTotals[key]) currentTotals[key] = 0
+    currentTotals[key] += Number(p.line_total) || 0
+  })
+
+  Object.keys(currentTotals).forEach(key => {
+    const newTotal = currentTotals[key]
+    const currentPaid = Number(draftSupplierPaid.value[key]) || 0
+    
+    // যদি Paid এর পরিমাণ ০ থাকে বা পুরো টাকা দেওয়া থাকে, তবে নতুন টোটাল বসিয়ে দেব
+    if (currentPaid === 0 || currentPaid !== newTotal) {
+      // যদি আগের টোটাল আর নতুন টোটাল এক না হয়, তবে আপডেট করব
+      draftSupplierPaid.value[key] = newTotal
+      
+      // 🔥 ব্লিংক অ্যানিমেশন ট্রিগার
+      paidHighlight.value[key] = true
+      setTimeout(() => {
+        paidHighlight.value[key] = false
+      }, 1000)
+    }
+  })
+}, { deep: true })
+
+
 async function load() {
   const rid = getActiveRestaurantId()
   if (!rid) return
-  
   loading.value = true
   
   const [purchasesRes, suppliersRes] = await Promise.all([
@@ -65,7 +115,6 @@ async function load() {
   ])
 
   if (!purchasesRes.error) purchases.value = purchasesRes.data || []
-
   if (!suppliersRes.error) {
     suppliersList.value = suppliersRes.data || []
     const map = {}
@@ -80,21 +129,11 @@ async function load() {
 async function loadDrafts() {
   const rid = getActiveRestaurantId()
   if (!rid) return
-  
-  const { data, error } = await supabase
-    .from('purchase_drafts')
-    .select('*')
-    .eq('restaurant_id', rid)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    
+  const { data, error } = await supabase.from('purchase_drafts').select('*').eq('restaurant_id', rid).eq('status', 'pending').order('created_at', { ascending: false })
   if (!error) drafts.value = data || []
 }
 
-// ডেট পিকার চেঞ্জ হলে ডেটা রিলোড হবে
-watch(selectedDate, () => {
-  load()
-})
+watch(selectedDate, () => { load() })
 
 /* ---------- Main Page Delete / Undo ---------- */
 function handleDeleteMain(id) {
@@ -102,7 +141,6 @@ function handleDeleteMain(id) {
   if (index !== -1) {
     recentlyDeletedMain.value = { item: { ...purchases.value[index] }, index }
     purchases.value.splice(index, 1)
-    
     clearTimeout(undoTimeoutMain)
     undoTimeoutMain = setTimeout(async () => {
       await supabase.from('purchases').delete().eq('id', id)
@@ -117,27 +155,6 @@ function undoDeleteMain() {
     purchases.value.splice(recentlyDeletedMain.value.index, 0, recentlyDeletedMain.value.item)
     recentlyDeletedMain.value = null
     clearTimeout(undoTimeoutMain)
-  }
-}
-
-/* ---------- Draft Modal Delete / Undo ---------- */
-function handleDeleteDraftItem(itemName, index) {
-  const item = draftItems.value[index]
-  recentlyDeletedDraft.value = { item: { ...item }, index }
-  draftItems.value.splice(index, 1)
-  
-  clearTimeout(undoTimeoutDraft)
-  undoTimeoutDraft = setTimeout(() => {
-    recentlyDeletedDraft.value = null
-  }, 4000)
-}
-
-function undoDeleteDraftItem() {
-  playSound('click')
-  if (recentlyDeletedDraft.value) {
-    draftItems.value.splice(recentlyDeletedDraft.value.index, 0, recentlyDeletedDraft.value.item)
-    recentlyDeletedDraft.value = null
-    clearTimeout(undoTimeoutDraft)
   }
 }
 
@@ -165,15 +182,12 @@ function adjustmentOf(p) {
   return total - q * up
 }
 
-function showToast(msg) {
-  alert(msg)
-}
+function showToast(msg) { alert(msg) }
 
 /* ---------- Draft Actions ---------- */
 function openDraft(draft) {
   selectedDraftId.value = draft.id
-  recentlyDeletedDraft.value = null
-  // ডিপ কপি এবং লাইন টোটাল সেট
+  draftSupplierPaid.value = {}
   draftItems.value = JSON.parse(JSON.stringify(draft.items)).map(item => {
     return {
       ...item,
@@ -181,9 +195,40 @@ function openDraft(draft) {
       line_total: (Number(item.max_price) || 0) * (Number(item.quantity) || 1)
     }
   })
+  
+  const map = {}
+  draftItems.value.forEach(p => {
+    const key = p.supplier || '— সাপ্লায়ার ছাড়া —'
+    if (!map[key]) map[key] = 0
+    map[key] += Number(p.line_total) || 0
+  })
+  draftSupplierPaid.value = map
   showDraftModal.value = true
 }
 
+// 🔥 ড্রাফট ডিলিট (Undo সহ)
+function handleDeleteDraftItem(itemName, index) {
+  playSound('delete')
+  const item = draftItems.value[index]
+  recentlyDeletedDraft.value = { item: { ...item }, index }
+  draftItems.value.splice(index, 1)
+  
+  clearTimeout(undoTimeoutDraft)
+  undoTimeoutDraft = setTimeout(() => {
+    recentlyDeletedDraft.value = null
+  }, 4000)
+}
+
+function undoDeleteDraftItem() {
+  playSound('click')
+  if (recentlyDeletedDraft.value) {
+    draftItems.value.splice(recentlyDeletedDraft.value.index, 0, recentlyDeletedDraft.value.item)
+    recentlyDeletedDraft.value = null
+    clearTimeout(undoTimeoutDraft)
+  }
+}
+
+// 🔥 ড্রাফট সেভ
 async function confirmDraft() {
   if (!draftItems.value.length) return showToast('কোনো পণ্য নেই!')
   saving.value = true
@@ -197,10 +242,14 @@ async function confirmDraft() {
     if (p.line_total !== undefined && p.line_total !== null && p.line_total !== '') {
       finalTotal = Number(p.line_total)
     }
-
     let finalUnitPrice = originalPrice
-    if (p.line_total !== '') {
-      finalUnitPrice = finalTotal / qty
+    if (p.line_total !== '') { finalUnitPrice = finalTotal / qty }
+
+    const supplierKey = p.supplier || '— সাপ্লায়ার ছাড়া —'
+    const group = draftGroups.value.find(g => g.supplier === supplierKey)
+    let itemDue = 0
+    if (group && group.due > 0 && group.total > 0) {
+      itemDue = (group.due * finalTotal) / group.total
     }
 
     return {
@@ -209,8 +258,8 @@ async function confirmDraft() {
       unit: p.unit,
       unit_price: +finalUnitPrice.toFixed(2), 
       total_price: +finalTotal.toFixed(2),     
-      paid_amount: +finalTotal.toFixed(2),
-      due_amount: 0,
+      paid_amount: +(finalTotal - itemDue).toFixed(2),
+      due_amount: +itemDue.toFixed(2),
       supplier: p.supplier || null,
       note: null,
       purchase_date: selectedDate.value,
@@ -220,14 +269,9 @@ async function confirmDraft() {
   })
 
   const { error } = await supabase.from('purchases').insert(rowsToInsert)
-  if (error) { 
-    showToast('সেভ হয়নি: ' + error.message)
-    saving.value = false
-    return 
-  }
+  if (error) { showToast('সেভ হয়নি: ' + error.message); saving.value = false; return }
 
   await supabase.from('purchase_drafts').delete().eq('id', selectedDraftId.value)
-  
   await load()
   await loadDrafts()
   
@@ -253,14 +297,9 @@ onMounted(async () => {
 <template>
   <div class="px-3 pt-3 space-y-3 pb-24">
     
-    <!-- Date Picker -->
-    <input 
-      type="date" 
-      v-model="selectedDate" 
-      class="w-full h-10 px-3 rounded-lg bg-white border border-slate-200 outline-none text-sm" 
-    />
+    <input type="date" v-model="selectedDate" class="w-full h-10 px-3 rounded-lg bg-white border border-slate-200 outline-none text-sm" />
 
-    <!-- 🔥 ড্রাফট লিস্ট সেকশন -->
+    <!-- ড্রাফট লিস্ট সেকশন -->
     <div v-if="drafts.length" class="bg-blue-50 border border-blue-200 rounded-xl p-3 shadow-sm space-y-2">
       <p class="text-[12px] font-bold text-blue-800 flex items-center gap-1">
         <span>📝</span> সেভ করা বাজার লিস্ট
@@ -325,7 +364,6 @@ onMounted(async () => {
                 </span>
                 <span v-if="isAdjusted(p)" class="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 align-middle ml-1"></span>
               </p>
-              <p v-if="p.note && !p.note.includes('ড্রাফট')" class="text-[10px] text-slate-400 truncate">📝 {{ p.note }}</p>
             </div>
             <div class="col-span-2 text-center" :class="isAdjusted(p) ? 'text-amber-800' : 'text-slate-700'">
               {{ p.quantity }} <span class="text-[10px]">{{ p.unit }}</span>
@@ -346,6 +384,7 @@ onMounted(async () => {
           <div class="col-span-9 text-slate-500">সাবটোটাল — {{ g.supplier }}</div>
           <div class="col-span-3 text-right">
             <p class="font-semibold text-slate-700">৳ {{ fmt(g.total) }}</p>
+            <p v-if="g.due > 0" class="text-[9px] font-bold text-red-500">বাকি: ৳{{ fmt(g.due) }}</p>
           </div>
         </div>
       </div>
@@ -360,7 +399,7 @@ onMounted(async () => {
     </div>
   </div>
 
-  <!-- 🔥 Undo Toast (মেইন পেজ) -->
+  <!-- Undo Toast Main -->
   <transition name="slide-up">
     <div v-if="recentlyDeletedMain" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white text-[12px] px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-4 border border-slate-700 w-[90%] max-w-[320px] justify-between">
       <div class="flex items-center gap-2 min-w-0">
@@ -371,7 +410,8 @@ onMounted(async () => {
     </div>
   </transition>
 
-  <!-- 🔥 ড্রাফট কনফার্ম মডাল -->
+  <!-- 🔥 নতুন আপডেট: ড্রাফট কনফার্ম মডাল (দোকানভিত্তিক গ্রুপিং ও বাকি) -->
+    <!-- 🔥 ড্রাফট কনফার্ম মডাল -->
   <div v-if="showDraftModal" class="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm" @click.self="showDraftModal = false">
     <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl relative">
       
@@ -384,43 +424,74 @@ onMounted(async () => {
       </div>
 
       <div class="p-2 overflow-auto flex-1 bg-slate-50 relative">
-        <div class="grid grid-cols-12 gap-1 px-1 py-1.5 bg-slate-200 rounded-t text-[10px] font-bold text-slate-600 mb-1">
-          <div class="col-span-3">পণ্য</div>
-          <div class="col-span-2 text-center">পরিমাণ</div>
-          <div class="col-span-2 text-right">দর</div>
-          <div class="col-span-2 text-right">মোট</div>
-          <div class="col-span-3 pl-1">সাপ্লায়ার</div>
-        </div>
+        
+        <!-- দোকান অনুযায়ী গ্রুপ -->
+        <div v-for="(g, gi) in draftGroups" :key="gi" class="mb-3">
+          
+          <div class="flex items-center justify-between px-2 py-1.5 bg-slate-200 rounded-t-lg">
+            <p class="text-[11px] font-bold text-slate-700">📍 {{ g.supplier }}</p>
+            <p class="text-[10px] text-slate-600 font-bold">{{ g.list.length }} টি</p>
+          </div>
 
-        <div class="space-y-1.5">
-          <SwipeToDelete 
-            v-for="(p, i) in draftItems" 
-            :key="p.item_name" 
-            :id="p.item_name"
-            @delete="handleDeleteDraftItem(p.item_name, i)"
-          >
-            <div class="grid grid-cols-12 gap-1 items-center bg-white p-1.5 shadow-sm">
-              <div class="col-span-3 min-w-0">
-                <p class="text-[11px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
-                <p class="text-[8px] text-slate-400">{{ p.unit }}</p>
+          <div class="grid grid-cols-12 gap-1 px-1 py-1 bg-slate-100 text-[9px] font-bold text-slate-500 border-b border-slate-200">
+            <div class="col-span-4">পণ্য</div>
+            <div class="col-span-2 text-center">পরিমাণ</div>
+            <div class="col-span-2 text-right">দর</div>
+            <div class="col-span-3 text-right">মোট</div>
+            <div class="col-span-1"></div>
+          </div>
+
+          <div class="space-y-0.5 mt-0.5">
+            <SwipeToDelete 
+              v-for="(p, i) in g.list" 
+              :key="i" 
+              :id="p.item_name"
+              @delete="handleDeleteDraftItem(p.item_name, draftItems.indexOf(p))"
+            >
+              <div class="grid grid-cols-12 gap-1 items-center bg-white p-1.5 shadow-sm">
+                <div class="col-span-4 min-w-0">
+                  <p class="text-[11px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
+                  <p class="text-[8px] text-slate-400">{{ p.unit }}</p>
+                </div>
+                <div class="col-span-2">
+                  <input v-model="p.quantity" type="number" class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-center font-bold outline-none" />
+                </div>
+                <div class="col-span-2">
+                  <input v-model="p.max_price" type="number" class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-right font-bold outline-none" />
+                </div>
+                <div class="col-span-3">
+                  <input v-model="p.line_total" type="number" class="w-full h-7 px-0.5 border border-amber-300 bg-amber-50 rounded text-[10px] text-right font-bold text-amber-900 outline-none" />
+                </div>
+                <div class="col-span-1 text-right">
+                  <button @click="handleDeleteDraftItem(p.item_name, draftItems.indexOf(p))" class="text-red-400 text-sm">✕</button>
+                </div>
               </div>
-              <div class="col-span-2">
-                <input v-model="p.quantity" type="number" class="w-full h-7 px-0.5 border border-slate-300 rounded text-[11px] text-center font-bold outline-none" />
-              </div>
-              <div class="col-span-2">
-                <input v-model="p.max_price" type="number" class="w-full h-7 px-0.5 border border-slate-300 rounded text-[11px] text-right font-bold outline-none" />
-              </div>
-              <div class="col-span-2">
-                <input v-model="p.line_total" type="number" class="w-full h-7 px-0.5 border border-amber-300 bg-amber-50 rounded text-[11px] text-right font-bold text-amber-900 outline-none" />
-              </div>
-              <div class="col-span-3 pl-0.5">
-                <select v-model="p.supplier" class="w-full h-7 px-0.5 border border-slate-300 rounded text-[9px] bg-white outline-none truncate">
-                  <option value="">ছাড়া</option>
-                  <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
-                </select>
-              </div>
+            </SwipeToDelete>
+          </div>
+
+          <!-- 🔥 সাবটোটাল, পরিশোধ ও বাকি (এক লাইনে) -->
+          <div class="bg-slate-100 rounded-b-lg p-2 mt-0.5 border-t border-slate-200 flex items-center justify-between gap-1 text-[10px]">
+            <div class="font-bold text-slate-700 shrink-0">
+              সাব: ৳{{ fmt(g.total) }}
             </div>
-          </SwipeToDelete>
+            <!-- পরিশোধ (Paid) -->
+            <div 
+              class="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5 shrink-0 transition-all duration-300"
+              :class="paidHighlight[g.supplier] ? 'ring-2 ring-amber-400 bg-amber-50 scale-105' : ''"
+            >
+              <span class="text-[9px] text-emerald-700 font-bold">৳</span>
+              <input 
+                v-model="draftSupplierPaid[g.supplier]" 
+                type="number" 
+                class="w-10 bg-transparent text-right text-[10px] font-bold text-emerald-800 outline-none" 
+              />
+              <button @click="draftSupplierPaid[g.supplier] = String(g.total)" class="text-[8px] bg-emerald-600 text-white px-1 py-0.5 rounded active:scale-95 shrink-0">সম্পূর্ণ</button>
+            </div>
+            <div class="font-bold text-red-500 shrink-0 text-right">
+              বাকি: ৳{{ fmt(g.due) }}
+            </div>
+          </div>
+
         </div>
 
         <div v-if="!draftItems.length" class="text-center py-10">
@@ -428,13 +499,25 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 🔥 Undo Toast (ড্রাফট পপআপের জন্য) -->
+      <!-- 🔥 Undo Popup (ড্রাফট মডাল) -->
       <transition name="slide-up">
         <div v-if="recentlyDeletedDraft" class="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white text-[11px] px-3 py-2 rounded-lg shadow-xl flex items-center gap-3 w-[90%] justify-between">
-          <span class="truncate">{{ recentlyDeletedDraft.item.item_name }} মুছে ফেলা হয়েছে</span>
+          <span class="truncate"><span class="font-bold">{{ recentlyDeletedDraft.item.item_name }}</span> মুছে ফেলা হয়েছে</span>
           <button @click="undoDeleteDraftItem" class="text-emerald-400 font-bold shrink-0">↺ আনডু</button>
         </div>
       </transition>
+
+      <!-- 🔥 পুরো বিলের মোট সামারি -->
+      <div class="p-3 bg-slate-800 text-white">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-[11px] text-white/70">মোট বিল:</span>
+          <span class="text-[14px] font-bold">৳ {{ fmt(draftTotal) }}</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-[11px] text-red-400">মোট বাকি:</span>
+          <span class="text-[14px] font-bold text-red-400">৳ {{ fmt(draftTotalDue) }}</span>
+        </div>
+      </div>
 
       <div class="p-4 border-t border-slate-100 flex gap-2 bg-slate-50 rounded-b-2xl">
         <button @click="showDraftModal = false" class="flex-1 h-11 rounded-xl bg-slate-200 text-slate-700 font-bold text-[13px]">বাতিল</button>
