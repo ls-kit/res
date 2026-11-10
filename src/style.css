@@ -5,6 +5,10 @@
 html, body, #app {
   height: 100%;
 }
+/* গ্লোবাল ফন্ট সাইজ স্কেল (মোবাইলের জন্য বড় ও স্পষ্ট) */
+html {
+  font-size: 20px !important; /* ডিফল্ট ১৬px এর বদলে ১৮px */
+}
 
 body {
   font-family: 'Hind Siliguri', system-ui, sans-serif;
