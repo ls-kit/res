@@ -7,7 +7,7 @@ html, body, #app {
 }
 /* গ্লোবাল ফন্ট সাইজ স্কেল (মোবাইলের জন্য বড় ও স্পষ্ট) */
 html *{
-  font-size: 18px !important; /* ডিফল্ট ১৬px এর বদলে ১৮px */
+  font-size: 16px !important; /* ডিফল্ট ১৬px এর বদলে ১৮px */
 }
 
 body {
