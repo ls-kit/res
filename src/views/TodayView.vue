@@ -459,36 +459,39 @@ onMounted(async () => {
   <div v-if="showDraftModal" class="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm" @click.self="showDraftModal = false">
     <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl relative">
       
-      <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
-        <div>
-          <p class="text-[14px] font-bold text-slate-800">বাজার নিশ্চিত করুন</p>
-          <p class="text-[11px] text-slate-500">পণ্যে সোয়ার্প করে বাদ দিন</p>
-        </div>
-        <button @click="showDraftModal = false" class="text-slate-400 text-lg">✕</button>
+<div class="px-3 py-2.5 bg-slate-50 border-b border-slate-100 rounded-t-2xl flex items-center justify-between gap-2">
+  <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-md px-1.5 py-0.5 shadow-sm">
+      <span class="text-[9px] font-bold text-slate-500">জমা তারিখ:</span>
+      <span class="text-[10px] font-bold text-emerald-700">
+        {{ formatDateBn(draftSaveDate) }}
+      </span>
+      
+      <!-- ক্যালেন্ডার আইকন -->
+      <div class="relative w-5 h-5 rounded bg-slate-100 flex items-center justify-center cursor-pointer overflow-hidden ml-0.5">
+        <span class="text-[10px]">📅</span>
+        <input 
+          type="date" 
+          v-model="draftSaveDate" 
+          class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+        />
       </div>
+    </div>
 
-      <!-- 🔥 নতুন তারিখ পিকার -->
-      <div class="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-        <span class="text-[11px] font-bold text-slate-600 shrink-0">সেভ করার তারিখ:</span>
-        
-        <div class="relative flex items-center gap-2">
-          <!-- বাংলা তারিখ দেখানোর টেক্সট -->
-          <span class="text-[12px] font-bold text-slate-800">
-            {{ formatDateBn(draftSaveDate) }}
-          </span>
-          
-          <!-- ডেট পিকারের ইনপুট (যাতে ক্যালেন্ডার ওপেন হয়) -->
-          <div class="relative w-8 h-8 rounded-lg bg-white border border-slate-300 flex items-center justify-center active:scale-95 shadow-sm cursor-pointer overflow-hidden">
-            <span class="text-slate-500 text-sm">📅</span>
-            <!-- opacity-0 দিয়ে আসল ডেট পিকার লুকানো হলো, যাতে ক্লিক করলে ক্যালেন্ডার ওপেন হয় -->
-            <input 
-              type="date" 
-              v-model="draftSaveDate" 
-              class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
-            />
-          </div>
-        </div>
-      </div>
+  <!-- ডান দিক: তারিখ পিকার ও ক্লোজ বাটন -->
+  <div class="flex items-center gap-2">
+    
+  <!-- বাম দিক: টাইটেল -->
+  <p class="text-[13px] font-bold text-slate-800 shrink-0">
+    বাজার কনফার্ম করুন
+  </p>
+
+    <!-- ক্লোজ বাটন -->
+    <button @click="showDraftModal = false" class="text-slate-400 bg-white border border-slate-200 rounded-full w-6 h-6 flex items-center justify-center shadow-sm active:scale-95 shrink-0 text-xs">
+      ✕
+    </button>
+  </div>
+
+</div>
 
       <!-- হেডার (ডেট পিকারের নিচে, টেবিলের ঠিক উপরে) -->
       <div class="grid grid-cols-12 gap-1 px-2 py-1.5 bg-slate-100 border-b border-slate-200 text-[9px] font-bold text-slate-500 rounded-t-lg">
