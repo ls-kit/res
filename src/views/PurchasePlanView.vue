@@ -378,10 +378,12 @@ onMounted(loadData)
                 
               <!-- বাম দিক: পণ্যের নাম ও স্টোর ড্রপডাউন (এক লাইনে) -->
               <div class="flex-1 min-w-0 flex items-center gap-1.5">
-                <!-- পণ্যের নাম -->
-                <div class="flex items-baseline gap-0 min-w-0">
-                  <p class="text-[12px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
-                  <span class="text-[9px] scale-75 font-normal text-slate-400 shrink-0">({{ p.unit }})</span>
+                <!-- পণ্যের নাম ও একক -->
+                <div class="flex items-baseline gap-1 min-w-0">
+                  <p class="text-[12px] font-bold text-slate-800 truncate" @click="alert(p.item_name)">
+                    {{ p.item_name }}
+                  </p>
+                  <span class="text-[9px] font-normal text-slate-400 shrink-0">({{ p.unit }})</span>
                 </div>
                 
                 <!-- 🔥 মিনি Store Selector (পণ্যের নামের পাশে) -->
@@ -403,13 +405,13 @@ onMounted(loadData)
                   
                   <!-- পরিমাণ -->
                   <div class="flex items-center border border-slate-200 rounded bg-slate-50 overflow-hidden h-6">
-                    <button @click="updateQty(p, -1)" class="w-5 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-200">-</button>
+                    <button @click="updateQty(p, -1)" class="w-3 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-200">-</button>
                     <input v-model="p.quantity" type="number" class="w-6 text-center text-[10px] font-bold bg-transparent outline-none" />
-                    <button @click="updateQty(p, 1)" class="w-5 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-200">+</button>
+                    <button @click="updateQty(p, 1)" class="w-3 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-200">+</button>
                   </div>
 
                   <!-- দর -->
-                  <div class="flex items-center justify-end w-10">
+                  <div class="flex items-center justify-end w-8">
                     <input v-model="p.max_price" type="number" class="w-full text-right font-medium text-[11px] text-slate-600 bg-transparent outline-none border-b border-slate-300" />
                   </div>
 
