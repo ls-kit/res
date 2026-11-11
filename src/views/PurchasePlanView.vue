@@ -129,8 +129,15 @@ const cheapestSuppliers = computed(() => {
 
 const filteredItems = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return items.value
-  return items.value.filter(i => i.name.toLowerCase().includes(q))
+  
+  // 🔥 প্রথমে চেক করব পণ্যটি ইতিমধ্যেই তালিকায় আছে কিনা
+  const availableItems = items.value.filter(item => {
+    const isAlreadyInPlan = planList.value.some(p => p.item_name === item.name)
+    return !isAlreadyInPlan
+  })
+
+  if (!q) return availableItems
+  return availableItems.filter(i => i.name.toLowerCase().includes(q))
 })
 
 function addToPlan(item) {
@@ -281,7 +288,7 @@ onMounted(loadData)
     </div>
     <div class="flex justify-end mt-1">
       <button @click="$router.push('/items')" class="text-[10px] text-blue-600 font-bold flex items-center gap-1 active:scale-95">
-        ➕ নতুন পণ্য যোগ করুন
+        ➕ তালিকায় নতুন পণ্য যোগ করুন
       </button>
     </div>
 

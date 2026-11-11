@@ -26,6 +26,7 @@ const drafts = ref([])
 const showDraftModal = ref(false)
 const selectedDraftId = ref(null)
 const draftItems = ref([])
+const draftSaveDate = ref('') // 🔥 পপআপে তারিখ সেভ করার জন্য
 const draftSupplierPaid = ref({}) // দোকানভিত্তিক পরিশোধ
 
 const paidHighlight = ref({}) // কোন দোকানের Paid আপডেট হলো তা ট্র্যাক করতে
@@ -188,6 +189,7 @@ function showToast(msg) { alert(msg) }
 function openDraft(draft) {
   selectedDraftId.value = draft.id
   draftSupplierPaid.value = {}
+  draftSaveDate.value = selectedDate.value 
   draftItems.value = JSON.parse(JSON.stringify(draft.items)).map(item => {
     return {
       ...item,
@@ -280,7 +282,7 @@ async function confirmDraft() {
       due_amount: +itemDue.toFixed(2),
       supplier: p.supplier || null,
       note: null,
-      purchase_date: selectedDate.value,
+      purchase_date: draftSaveDate.value,
       status: 'pending',
       restaurant_id: getActiveRestaurantId()
     }
@@ -343,7 +345,7 @@ onMounted(async () => {
     <!-- Purchases List -->
     <div v-else class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
       <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
-        <p class="text-[12px] font-bold text-slate-700 text-center">🧾 দৈনিক ক্রয় মেমো -- {{ formatDateBn(selectedDate) }}</p>
+        <p class="text-[12px] font-bold text-slate-700 text-center">🧾 দৈনিক ক্রয় মেমো <br> আপনি <u> {{ formatDateBn(selectedDate) }} </u> তারিখের বাজার তালিকা দেখছেন</p>
       </div>
 
       <div class="grid grid-cols-12 gap-1 px-2.5 py-1.5 bg-slate-100 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
@@ -441,15 +443,54 @@ onMounted(async () => {
         <button @click="showDraftModal = false" class="text-slate-400 text-lg">✕</button>
       </div>
 
+      <!-- 🔥 নতুন তারিখ পিকার -->
+      <div class="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <span class="text-[11px] font-bold text-slate-600 shrink-0">সেভ করার তারিখ:</span>
+        
+        <div class="relative flex items-center gap-2">
+          <!-- বাংলা তারিখ দেখানোর টেক্সট -->
+          <span class="text-[12px] font-bold text-slate-800">
+            {{ formatDateBn(draftSaveDate) }}
+          </span>
+          
+          <!-- ডেট পিকারের ইনপুট (যাতে ক্যালেন্ডার ওপেন হয়) -->
+          <div class="relative w-8 h-8 rounded-lg bg-white border border-slate-300 flex items-center justify-center active:scale-95 shadow-sm cursor-pointer overflow-hidden">
+            <span class="text-slate-500 text-sm">📅</span>
+            <!-- opacity-0 দিয়ে আসল ডেট পিকার লুকানো হলো, যাতে ক্লিক করলে ক্যালেন্ডার ওপেন হয় -->
+            <input 
+              type="date" 
+              v-model="draftSaveDate" 
+              class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+            />
+          </div>
+        </div>
+      </div>
+
       <div class="p-2 overflow-auto flex-1 bg-slate-50 relative">
         
         <!-- দোকান অনুযায়ী গ্রুপ -->
         <div v-for="(g, gi) in draftGroups" :key="gi" class="mb-3">
           
-          <div class="flex items-center justify-between px-2 py-1.5 bg-slate-200 rounded-t-lg">
-            <p class="text-[11px] font-bold text-slate-700">📍 {{ g.supplier }}</p>
+        <div class="flex items-center justify-between px-2 py-1.5 bg-slate-200 rounded-t-lg">
+          <!-- বাম দিকে সাপ্লায়ার নাম -->
+          <p class="text-[11px] font-bold text-slate-700 truncate max-w-[150px]">📍 {{ g.supplier }}</p>
+          
+          <!-- ডান দিকে কল বাটন ও সংখ্যা -->
+          <div class="flex items-center gap-2 shrink-0">
+            <!-- 🔥 সুন্দর SVG কল বাটন -->
+            <a 
+              v-if="phoneOf(g.supplier)" 
+              :href="`tel:${phoneOf(g.supplier)}`" 
+              class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center active:scale-95 shadow-sm"
+              title="কল দিন"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+              </svg>
+            </a>
             <p class="text-[10px] text-slate-600 font-bold">{{ g.list.length }} টি</p>
           </div>
+        </div>
 
           <div class="grid grid-cols-12 gap-1 px-1 py-1 bg-slate-100 text-[9px] font-bold text-slate-500 border-b border-slate-200">
             <div class="col-span-4">পণ্য</div>

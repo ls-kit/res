@@ -120,13 +120,13 @@ onMounted(async () => {
     <!-- Hide bottom nav on login page -->
     <!-- Premium Bottom Navigation -->
     <nav v-if="route.name !== 'login'" class="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
-      <div class="grid grid-cols-5 px-1">
+      <div class="grid grid-cols-5 px-1 pb-2">
         <button
           @click="router.push('/dashboard')"
-          class="flex flex-col items-center justify-center gap-1 pb-1 text-[10px] transition select-none relative"
+          class="flex flex-col items-center justify-center gap-0 pb-0 text-[10px] transition select-none relative"
           :class="route.name === 'dashboard' ? 'text-[#0b172a] font-bold' : 'text-slate-400'"
         >
-          <div class="p-1.5 rounded-xl transition-all duration-300" :class="route.name === 'dashboard' ? 'bg-blue-50' : ''">
+          <div class="p-0.5 rounded-xl transition-all duration-300" :class="route.name === 'dashboard' ? 'bg-blue-50' : ''">
             <svg class="w-5 h-5" :class="route.name === 'dashboard' ? 'text-blue-600' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
           </div>
           <span>ড্যাশবোর্ড</span>
@@ -134,10 +134,10 @@ onMounted(async () => {
 
         <button
           @click="router.push('/today')"
-          class="flex flex-col items-center justify-center gap-1 pb-1 text-[10px] transition select-none relative"
+          class="flex flex-col items-center justify-center gap-0 pb-0 text-[10px] transition select-none relative"
           :class="route.name === 'today' ? 'text-[#0b172a] font-bold' : 'text-slate-400'"
         >
-          <div class="p-1.5 rounded-xl transition-all duration-300" :class="route.name === 'today' ? 'bg-blue-50' : ''">
+          <div class="p-0.5 rounded-xl transition-all duration-300" :class="route.name === 'today' ? 'bg-blue-50' : ''">
             <svg class="w-5 h-5" :class="route.name === 'today' ? 'text-blue-600' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
           </div>
           <span>আজকের</span>
@@ -155,22 +155,22 @@ onMounted(async () => {
 
         <button
           @click="router.push('/purchase-plan')"
-          class="flex flex-col items-center justify-center gap-1 pb-1 text-[10px] transition select-none relative"
+          class="flex flex-col items-center justify-center gap-0 pb-0 text-[10px] transition select-none relative"
           :class="route.name === 'purchase-plan' ? 'text-[#0b172a] font-bold' : 'text-slate-400'"
         >
-          <div class="p-1.5 rounded-xl transition-all duration-300" :class="route.name === 'items' ? 'bg-blue-50' : ''">
+          <div class="p-0.5 rounded-xl transition-all duration-300" :class="route.name === 'items' ? 'bg-blue-50' : ''">
             🛒
           </div>
-          <span>বাজার পরিকল্পনা</span>
+          <span>পরিকল্পনা</span>
         </button>
 
 
 
         <button
           @click="showMenu = true"
-          class="flex flex-col items-center justify-center gap-1 pb-1 text-[10px] text-slate-400 transition select-none"
+          class="flex flex-col items-center justify-center gap-0 pb-0 text-[10px] text-slate-400 transition select-none"
         >
-          <div class="p-1.5 rounded-xl">
+          <div class="p-0.5 rounded-xl">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
           </div>
           <span>মেনু</span>
