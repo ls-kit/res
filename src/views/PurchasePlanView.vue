@@ -187,9 +187,13 @@ const sortedPlanList = computed(() => {
   return [...planList.value].sort((a, b) => {
     const supA = (a.supplier || '').trim()
     const supB = (b.supplier || '').trim()
-    if (supA === supB) return a.item_name.localeCompare(b.item_name, 'bn')
+    
+    // 🔥 যাদের সাপ্লায়ার নেই তারা সবার শেষে থাকবে
+    if (!supA && !supB) return a.item_name.localeCompare(b.item_name, 'bn')
     if (!supA) return 1
     if (!supB) return -1
+    
+    // সাপ্লায়ার অনুযায়ী সাজানো
     return supA.localeCompare(supB, 'bn')
   })
 })
@@ -197,19 +201,28 @@ const sortedPlanList = computed(() => {
 const groupedPlanList = computed(() => {
   const map = new Map()
   
-  // sortedPlanList ব্যবহার করছি, যাতে দোকান অনুযায়ী আগে থেকেই সাজানো থাকে
+  // ডেটাবেজে থাকা বৈধ সাপ্লায়ারদের নামের লিস্ট
+  const validSupplierNames = suppliersList.value.map(s => s.name.toLowerCase().trim())
+
   sortedPlanList.value.forEach(item => {
-    const key = item.supplier || 'সাপ্লায়ার ছাড়া'
-    if (!map.has(key)) map.set(key, [])
-    map.get(key).push(item)
+    let supName = item.supplier ? String(item.supplier).trim() : ''
+    
+    // 🔥 যদি দোকানের নাম ডেটাবেজে না থাকে (মানে ডিলিট হয়ে গেছে), তবে সাপ্লায়ার ছাড়া হিসেবে ধরা হবে
+    if (supName !== '' && !validSupplierNames.includes(supName.toLowerCase())) {
+      supName = ''
+      item.supplier = '' // পণ্যের ভেতরের ডেটাও খালি করে দিচ্ছি
+    }
+
+    const key = supName !== '' ? supName : 'সাপ্লায়ার ছাড়া'
+    
+    if (!map.has(key)) {
+      map.set(key, { supplier: key, items: [] })
+    }
+    map.get(key).items.push(item)
   })
   
-  return [...map.entries()].map(([supplier, items]) => ({
-    supplier,
-    items
-  }))
+  return Array.from(map.values())
 })
-
 
 
 // 🔥 ইংরেজি সংখ্যা থেকে বাংলা সংখ্যায় কনভার্ট করার ফাংশন
@@ -363,13 +376,29 @@ onMounted(loadData)
             >
               <div class="px-3 py-2 flex items-center justify-between gap-2 bg-white">
                 
-                <!-- বাম দিক: পণ্যের নাম ও একক -->
-                <div class="flex-1 min-w-0 flex items-center gap-1">
+              <!-- বাম দিক: পণ্যের নাম ও স্টোর ড্রপডাউন (এক লাইনে) -->
+              <div class="flex-1 min-w-0 flex items-center gap-1.5">
+                <!-- পণ্যের নাম -->
+                <div class="flex items-baseline gap-1 min-w-0">
                   <p class="text-[12px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
                   <span class="text-[9px] font-normal text-slate-400 shrink-0">({{ p.unit }})</span>
                 </div>
+                
+                <!-- 🔥 মিনি Store Selector (পণ্যের নামের পাশে) -->
+                <div class="relative flex items-center shrink-0">
+                  <select 
+                    v-model="p.supplier" 
+                    class="w-[85px] text-[9px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 outline-none truncate appearance-none cursor-pointer"
+                  >
+                    <option value="">সাপ্লায়ার নেই</option>
+                    <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
+                  </select>
+                  <!-- ড্রপডাউনের অ্যারো আইকন -->
+                  <span class="absolute right-1 top-1/2 -translate-y-1/2 text-blue-500 text-[8px] pointer-events-none">▼</span>
+                </div>
+              </div>
 
-                <!-- ডান দিক: পরিমাণ, দর, মোট -->
+                  <!-- ডান দিক: পরিমাণ, দর, মোট -->
                 <div class="flex items-center gap-1.5 shrink-0">
                   
                   <!-- পরিমাণ -->
@@ -384,7 +413,7 @@ onMounted(loadData)
                     <input v-model="p.max_price" type="number" class="w-full text-right font-medium text-[11px] text-slate-600 bg-transparent outline-none border-b border-slate-300" />
                   </div>
 
-                  <!-- 🔥 লাইন মোট (Line Total) -->
+                  <!-- লাইন মোট -->
                   <div class="text-right w-12">
                     <p class="text-[11px] font-bold text-slate-800">
                       ৳{{ fmt((Number(p.max_price) || 0) * (Number(p.quantity) || 0)) }}
@@ -396,6 +425,7 @@ onMounted(loadData)
             </SwipeToDelete>
           </div>
         </div>
+
       </div>
 
       <!-- Total & Actions Section -->
