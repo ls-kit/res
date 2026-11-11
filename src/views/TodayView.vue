@@ -292,6 +292,19 @@ async function confirmDraft() {
   if (error) { showToast('সেভ হয়নি: ' + error.message); saving.value = false; return }
 
   await supabase.from('purchase_drafts').delete().eq('id', selectedDraftId.value)
+
+
+  for (const p of draftItems.value) {
+    const newPrice = Number(p.max_price) || 0
+    if (newPrice > 0) {
+      await supabase
+        .from('items')
+        .update({ last_price: newPrice })
+        .eq('restaurant_id', getActiveRestaurantId())
+        .eq('name', p.item_name)
+    }
+  }
+
   await load()
   await loadDrafts()
   
