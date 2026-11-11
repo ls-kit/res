@@ -500,7 +500,7 @@ onMounted(async () => {
             <div class="col-span-1"></div>
           </div>
 
-          <div class="space-y-0.5 mt-0.5">
+                    <div class="space-y-0.5 mt-0.5">
             <SwipeToDelete 
               v-for="(p, i) in g.list" 
               :key="i" 
@@ -508,37 +508,51 @@ onMounted(async () => {
               @delete="handleDeleteDraftItem(p.item_name, draftItems.indexOf(p))"
             >
               <div class="grid grid-cols-12 gap-1 items-center bg-white p-1.5 shadow-sm">
-                <div class="col-span-4 min-w-0">
+                
+                <!-- পণ্যের নাম -->
+                <div class="col-span-3 min-w-0">
                   <p class="text-[11px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
                   <p class="text-[8px] text-slate-400">{{ p.unit }}</p>
                 </div>
+
+                <!-- পরিমাণ -->
                 <div class="col-span-2">
                   <input 
+                    v-select-on-focus 
                     v-model="p.quantity" 
                     @input="updateDraftPrice(p)" 
                     type="number" 
                     class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-center font-bold outline-none" 
                   />
                 </div>
+
+                <!-- দর (Price) -->
                 <div class="col-span-2">
                   <input 
+                    v-select-on-focus 
                     v-model="p.max_price" 
                     @input="updateDraftPrice(p)" 
                     type="number" 
                     class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-right font-bold outline-none" 
                   />
                 </div>
+
+                <!-- মোট (Line Total) -->
                 <div class="col-span-3">
                   <input 
+                    v-select-on-focus 
                     v-model="p.line_total" 
                     @input="updateDraftTotal(p)" 
                     type="number" 
                     class="w-full h-7 px-0.5 border border-amber-300 bg-amber-50 rounded text-[10px] text-right font-bold text-amber-900 outline-none" 
                   />
                 </div>
-                <div class="col-span-1 text-right">
+
+                <!-- ডিলিট বাটন -->
+                <div class="col-span-2 text-right">
                   <button @click="handleDeleteDraftItem(p.item_name, draftItems.indexOf(p))" class="text-red-400 text-sm">✕</button>
                 </div>
+
               </div>
             </SwipeToDelete>
           </div>
@@ -555,6 +569,7 @@ onMounted(async () => {
             >
               <span class="text-[9px] text-emerald-700 font-bold">৳</span>
               <input 
+                v-select-on-focus 
                 v-model="draftSupplierPaid[g.supplier]" 
                 type="number" 
                 class="w-10 bg-transparent text-right text-[10px] font-bold text-emerald-800 outline-none" 

@@ -12,6 +12,9 @@ const isSwiping = ref(false)
 const isHorizontalSwipe = ref(null)
 
 function onStart(e) {
+  // 🔥 যদি ইনপুট বা বাটনে ক্লিক করে, তবে সোয়ার্প বাতিল করব
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return
+  
   startX.value = e.touches ? e.touches[0].clientX : e.clientX
   startY.value = e.touches ? e.touches[0].clientY : e.clientY
   isSwiping.value = true

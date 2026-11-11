@@ -214,6 +214,25 @@ function lineTotal(r) {
   return +(q * p).toFixed(2)
 }
 
+
+// 🔥 দর পরিবর্তন করলে মোট আপডেট হবে
+function updatePrice(r) {
+  const qty = Number(r.quantity) || 0
+  const price = Number(r.unit_price) || 0
+  r.line_override = +(qty * price).toFixed(2)
+  r.isOverride = true // ওভাররাইড মুডে নিয়ে আসা
+}
+
+// 🔥 মোট পরিবর্তন করলে দর আপডেট হবে
+function updateTotal(r) {
+  const qty = Number(r.quantity) || 1
+  const total = Number(r.line_override) || 0
+  r.unit_price = +(total / qty).toFixed(2)
+  r.isOverride = true
+}
+
+
+
 function fmt(n) {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(n || 0)
 }
@@ -243,15 +262,29 @@ function pickItem(r, item) {
 
 function updateQty(r, delta) {
   const current = parseFloat(r.quantity) || 0
-  const next = Math.max(0, current + delta)
+  const next = Math.max(1, current + delta)
   r.quantity = next
-  if (delta > 0) {
-    nextTick(() => {
-      const price = document.querySelector(`[data-price="${r.key}"]`)
-      if (price && !r.unit_price) flash(price)
-    })
+  
+  // 🔥 যদি ওভাররাইড করা থাকে, তবে পরিমাণ পরিবর্তনের সাথে সাথে মোট দাম আপডেট হবে
+  if (r.isOverride) {
+    const price = Number(r.unit_price) || 0
+    r.line_override = +(next * price).toFixed(2)
+  }
+  
+  playSound() // (যদি সাউন্ড ফাংশন থাকে)
+}
+
+// 🔥 মোট (Override) পরিবর্তন করলে দর অটো-অ্যাডজাস্ট হবে
+function updateOverride(r) {
+  const qty = Number(r.quantity) || 1
+  const overrideTotal = Number(r.line_override) || 0
+  
+  if (qty > 0) {
+    // দর = মোট / পরিমাণ
+    r.unit_price = +(overrideTotal / qty).toFixed(2)
   }
 }
+
 
 function addRow() {
   rows.value.push(makeRow())
@@ -623,14 +656,14 @@ function setFullPaid() {
             <span class="text-slate-400 text-[9px]">▼</span>
           </button>
           <button v-if="meta.supplier" @click="clearSupplier" class="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-400 shrink-0 flex items-center justify-center">✕</button>
-        </div>
+        </div>দর
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-2.5 shadow-sm">
         <div class="flex items-center gap-1 mb-1.5 text-blue-700">
           <span class="text-sm">📅</span>
           <p class="text-[11px] font-bold">তারিখ-{{ formatDateBn(meta.purchase_date) }}</p>
         </div>
-        <input v-model="meta.purchase_date" type="date" class="w-full h-8 px-1 rounded-lg border border-slate-200 bg-slate-50 outline-none text-[12px] font-semibold text-slate-700" />
+        <input v-model="meta.purchase_date" type="date" class="w-full h-8 px-1 rounded-lg border border-slate-200 bg-slate-50 outline-none text-[12px] font-semibold text-slate-700" />``
       </div>
     </div>
 
@@ -651,7 +684,7 @@ function setFullPaid() {
         <div class="col-span-2 text-right pr-1">মোট</div>
       </div>
 
-      <div class="divide-y divide-slate-100">
+            <div class="divide-y divide-slate-100">
         <div v-for="r in rows" :key="r.key" class="px-1.5 py-2 flex flex-col relative">
           
           <div class="grid grid-cols-12 gap-1 items-center">
@@ -662,7 +695,7 @@ function setFullPaid() {
                   {{ getIcon(r.item_name) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <input v-model="r.item_name" :data-name="r.key" type="text" placeholder="পণ্য..." class="w-full bg-transparent outline-none font-bold text-[13px] text-slate-800 placeholder-slate-400 truncate" @focus="r.showSuggest = true" @input="r.showSuggest = true" />
+                  <input v-select-on-focus v-model="r.item_name" :data-name="r.key" type="text" placeholder="পণ্য..." class="w-full bg-transparent outline-none font-bold text-[13px] text-slate-800 placeholder-slate-400 truncate" @focus="r.showSuggest = true" @input="r.showSuggest = true" />
                   <button @click="r.showUnitSheet = true" class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold mt-0.5">
                     {{ r.unit }}
                   </button>
@@ -683,17 +716,33 @@ function setFullPaid() {
             <div class="col-span-2">
               <div class="flex items-center border border-slate-200 rounded-lg h-8 overflow-hidden bg-white">
                 <button @click="updateQty(r, -1)" class="w-5 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-100 shrink-0">−</button>
-                <input v-model="r.quantity" :data-qty="r.key" type="number" inputmode="decimal" class="w-full min-w-0 text-center outline-none text-[12px] font-bold text-slate-800 focus:bg-amber-50 px-0.5" />
+                <input 
+                  v-select-on-focus 
+                  v-model="r.quantity" 
+                  @input="r.isOverride ? updateOverride(r) : null" 
+                  :data-qty="r.key" 
+                  type="number" 
+                  inputmode="decimal" 
+                  class="w-full min-w-0 text-center outline-none text-[12px] font-bold text-slate-800 focus:bg-amber-50 px-0.5" 
+                />
                 <button @click="updateQty(r, 1)" class="w-5 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-100 shrink-0">+</button>
               </div>
             </div>
 
             <!-- Price -->
             <div class="col-span-2">
-              <input v-model="r.unit_price" :data-price="r.key" type="number" inputmode="decimal" placeholder="0" class="w-full text-right bg-transparent outline-none text-[13px] font-medium text-slate-700 placeholder-slate-300 focus:border-b-2 focus:border-rose-400" />
+              <input 
+                v-model="r.unit_price" 
+                :data-price="r.key" 
+                v-select-on-focus 
+                type="number" 
+                inputmode="decimal" 
+                placeholder="0" 
+                class="w-full text-right bg-transparent outline-none text-[13px] font-medium text-slate-700 placeholder-slate-300 focus:border-b-2 focus:border-rose-400" 
+              />
             </div>
 
-            <!-- Total -->
+            <!-- Total (Auto Calculated + Override Option) -->
             <div class="col-span-2 flex items-center justify-end">
               <template v-if="!r.isOverride">
                 <button @click="enableOverride(r)" :data-total="r.key" class="font-bold text-[13px] text-slate-900 rounded px-1 -mx-1">
@@ -701,7 +750,14 @@ function setFullPaid() {
                 </button>
               </template>
               <template v-else>
-                <input v-model="r.line_override" :data-override="r.key" type="number" class="w-14 text-right bg-amber-50 border border-amber-300 rounded outline-none font-bold text-[13px] text-amber-900 px-1" />
+                <input 
+                v-select-on-focus 
+                  v-model="r.line_override" 
+                  @input="updateOverride(r)" 
+                  :data-override="r.key" 
+                  type="number" 
+                  class="w-14 text-right bg-amber-50 border border-amber-300 rounded outline-none font-bold text-[13px] text-amber-900 px-1" 
+                />
                 <button @click="resetOverride(r)" class="ml-1 text-[10px] bg-red-100 text-red-600 rounded px-1 py-0.5 active:scale-90" title="রিসেট">✕</button>
               </template>
             </div>
@@ -744,7 +800,7 @@ function setFullPaid() {
         <div class="flex justify-between items-center">
           <span class="text-slate-500">ডিসকাউন্ট</span>
           <div class="flex items-center gap-1">
-            <input v-model="meta.discount_value" type="number" placeholder="0" class="w-12 h-7 px-1 rounded border border-slate-200 text-center font-bold outline-none" />
+            <input v-select-on-focus v-model="meta.discount_value" type="number" placeholder="0" class="w-12 h-7 px-1 rounded border border-slate-200 text-center font-bold outline-none" />
             <button @click="meta.discount_type = meta.discount_type === 'percent' ? 'flat' : 'percent'" class="w-7 h-7 rounded bg-slate-100 text-slate-600 font-bold text-[11px]">
               {{ meta.discount_type === 'percent' ? '%' : '৳' }}
             </button>
@@ -757,7 +813,7 @@ function setFullPaid() {
           <span class="text-slate-500 shrink-0">অন্যান্য খরচ</span>
           <div class="flex items-center gap-1">
             <span class="text-slate-400 font-bold">৳</span>
-            <input v-model="meta.other_expense" type="number" placeholder="0" class="w-12 h-7 px-1 rounded border border-slate-200 text-right font-bold outline-none" />
+            <input v-select-on-focus v-model="meta.other_expense" type="number" placeholder="0" class="w-12 h-7 px-1 rounded border border-slate-200 text-right font-bold outline-none" />
             
             <div class="relative">
               <button @click="showExpenseDropdown = !showExpenseDropdown" class="w-[54px] h-7 rounded border border-slate-200 text-[10px] text-slate-600 flex items-center justify-between px-1 bg-white">
@@ -789,6 +845,7 @@ function setFullPaid() {
               <div class="flex items-center bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
                 <span class="text-emerald-600 font-bold mr-1 text-[12px]">৳</span>
                 <input 
+                v-select-on-focus 
                   v-model="paidAmount" 
                   @input="onPaidInput"
                   type="number" 
