@@ -357,9 +357,20 @@ onMounted(async () => {
 
     <!-- Purchases List -->
     <div v-else class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-      <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
-        <p class="text-[12px] font-bold text-slate-700 text-center">🧾 দৈনিক ক্রয় মেমো <br> আপনি <u> {{ formatDateBn(selectedDate) }} </u> তারিখের বাজার তালিকা দেখছেন</p>
-      </div>
+<div class="px-3 py-2.5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white flex flex-col items-center justify-center gap-1.5">
+  <!-- টাইটেল -->
+  <p class="text-[12px] font-bold text-slate-700 flex items-center gap-1">
+    🧾 দৈনিক ক্রয় মেমো
+  </p>
+  
+  <!-- তারিখের ব্যাজ -->
+  <div class="flex items-center gap-1.5 text-[11px]">
+    <span class="text-slate-500">আপনি দেখছেন:</span>
+    <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">
+      {{ formatDateBn(selectedDate) }}
+    </span>
+  </div>
+</div>
 
       <div class="grid grid-cols-12 gap-1 px-2.5 py-1.5 bg-slate-100 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
         <div class="col-span-5">পণ্য</div>
