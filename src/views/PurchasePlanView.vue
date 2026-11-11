@@ -360,7 +360,7 @@ onMounted(loadData)
         <div v-for="(group, gIdx) in groupedPlanList" :key="gIdx" class="mb-1">
           
           <!-- স্টোরের নাম (হেডার) -->
-          <div class="px-3 py-1.5 bg-slate-100 border-y border-slate-200 flex justify-between items-center">
+          <div class="px-3 py-1 bg-slate-100 border-y border-slate-200 flex justify-between items-center">
             <p class="text-[10px] font-bold text-slate-600">📍 {{ group.supplier }}</p>
             <p class="text-[9px] text-slate-500">{{ group.items.length }} টি পণ্য</p>
           </div>
@@ -374,21 +374,21 @@ onMounted(loadData)
               @delete="deleteItem"
               @undo="undoDeleteItem"
             >
-              <div class="px-3 py-2 flex items-center justify-between gap-2 bg-white">
+              <div class="px-3 py-1 flex items-center justify-between gap-2 bg-white">
                 
               <!-- বাম দিক: পণ্যের নাম ও স্টোর ড্রপডাউন (এক লাইনে) -->
               <div class="flex-1 min-w-0 flex items-center gap-1.5">
                 <!-- পণ্যের নাম -->
-                <div class="flex items-baseline gap-1 min-w-0">
+                <div class="flex items-baseline gap-0 min-w-0">
                   <p class="text-[12px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
-                  <span class="text-[9px] font-normal text-slate-400 shrink-0">({{ p.unit }})</span>
+                  <span class="text-[9px] scale-75 font-normal text-slate-400 shrink-0">({{ p.unit }})</span>
                 </div>
                 
                 <!-- 🔥 মিনি Store Selector (পণ্যের নামের পাশে) -->
                 <div class="relative flex items-center shrink-0">
                   <select 
                     v-model="p.supplier" 
-                    class="w-[85px] text-[9px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 outline-none truncate appearance-none cursor-pointer"
+                    class="w-[55px] text-[9px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 outline-none truncate appearance-none cursor-pointer"
                   >
                     <option value="">সাপ্লায়ার নেই</option>
                     <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
