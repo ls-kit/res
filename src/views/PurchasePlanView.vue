@@ -210,6 +210,24 @@ const groupedPlanList = computed(() => {
   }))
 })
 
+
+
+// 🔥 ইংরেজি সংখ্যা থেকে বাংলা সংখ্যায় কনভার্ট করার ফাংশন
+function toBn(number) {
+  if (number === null || number === undefined) return ''
+  const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯']
+  // সংখ্যাটিকে স্ট্রিং-এ রূপান্তর করে প্রতিটি অক্ষরকে বাংলায় বদলে দেওয়া
+  return number.toString().replace(/\d/g, d => bnDigits[d])
+}
+
+// তারিখ ফরম্যাটেও বাংলা সংখ্যা ব্যবহারের জন্য
+function getBnDate() {
+  const dateStr = new Intl.DateTimeFormat('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())
+  // Intl.DateTimeFormat 'bn-BD' সাধারণত নিজেই বাংলা সংখ্যা দেয়, তবে নিশ্চিত হওয়ার জন্য
+  return dateStr 
+}
+
+
 const savingDraft = ref(false)
 async function savePlan() {
   if (!planList.value.length) return showToast('তালিকাটি খালি!')
@@ -476,7 +494,7 @@ onMounted(loadData)
     <!-- হেডার -->
     <div class="text-center border-b-2 border-slate-800 pb-2 mb-3">
       <h1 class="text-[16px] font-black uppercase tracking-wider text-slate-900">বাজারের তালিকা</h1>
-      <p class="text-[9px] text-slate-600 mt-0.5">তারিখ: {{ new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) }}</p>
+      <p class="text-[9px] text-slate-600 mt-0.5">তারিখ: {{ getBnDate() }} </p>
     </div>
 
     <!-- দোকান অনুযায়ী গ্রুপ -->
@@ -489,7 +507,7 @@ onMounted(loadData)
           {{ group.supplier }}
         </span>
         <span class="shrink-0 ml-2 text-[9px] text-blue-700 leading-none">
-          {{ group.items.length }} টি
+         {{ toBn(group.items.length) }} টি
         </span>
       </div>
 
@@ -506,17 +524,17 @@ onMounted(loadData)
                 {{ p.item_name }}
               </span>
               <span v-if="Number(p.max_price) > 0" class="text-[8px] text-slate-500 whitespace-nowrap leading-none">
-                ({{ p.quantity }} {{ p.unit }} ৳{{ p.max_price }})
+                ({{ toBn(p.quantity) }} {{ p.unit }} ৳{{ toBn(p.max_price) }})
               </span>
               <span v-else class="text-[8px] text-slate-500 whitespace-nowrap leading-none">
-                ({{ p.quantity }} {{ p.unit }})
+               ({{ toBn(p.quantity) }} {{ p.unit }})
               </span>
             </div>
           </div>
 
           <!-- ডান দিক: মোট দাম -->
           <div class="text-[11px] font-bold text-slate-900 whitespace-nowrap ml-2 leading-none">
-            ৳ {{ fmt((Number(p.max_price) || 0) * (Number(p.quantity) || 0)) }}
+             ৳ {{ toBn(fmt((Number(p.max_price) || 0) * (Number(p.quantity) || 0))) }}
           </div>
         </div>
       </div>
@@ -525,7 +543,7 @@ onMounted(loadData)
     <!-- ফুটার (মোট) -->
     <div class="mt-4 pt-2 border-t-2 border-slate-800 border-dashed flex justify-between items-center">
       <span class="text-[12px] font-bold">সর্বমোট:</span>
-      <span class="text-[16px] font-black">৳ {{ fmt(totalEstCost) }}</span>
+      <span class="text-[16px] font-black">৳ {{ toBn(fmt(totalEstCost)) }}</span>
     </div>
     
     <div class="mt-2 text-center">

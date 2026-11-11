@@ -4,7 +4,7 @@ export default {
     theme: {
       extend: {
         fontFamily: {
-          bn: ['"Hind Siliguri"', 'system-ui', 'sans-serif']
+          bn: ['"Tiro Bangla"', 'system-ui', 'sans-serif']
         },
         colors: {
           brand: {

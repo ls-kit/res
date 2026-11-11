@@ -10,8 +10,23 @@ html *{
   font-size: 16px !important; /* ডিফল্ট ১৬px এর বদলে ১৮px */
 }
 
+/* লোকাল ফন্ট ডিক্লেয়ারেশন */
+@font-face {
+  font-family: 'Tiro Bangla';
+  src: url('./assets/fonts/tiro-bangla-latin-400-normal.ttf') format('truetype');
+  /* যদি woff2 ফাইল থাকে তবে: url('./assets/fonts/TiroBangla-Regular.woff2') format('woff2'); */
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* পুরো অ্যাপে ফন্টটি সেট করা */
 body {
-  font-family: 'Hind Siliguri', system-ui, sans-serif;
+  font-family: 'Tiro Bangla', 'Hind Siliguri', sans-serif !important;
+}
+
+body {
+  /* font-family: 'Hind Siliguri', system-ui, sans-serif; */
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
