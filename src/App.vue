@@ -154,15 +154,17 @@ onMounted(async () => {
         </div>
 
         <button
-          @click="router.push('/items')"
+          @click="router.push('/purchase-plan')"
           class="flex flex-col items-center justify-center gap-1 pb-1 text-[10px] transition select-none relative"
-          :class="route.name === 'items' ? 'text-[#0b172a] font-bold' : 'text-slate-400'"
+          :class="route.name === 'purchase-plan' ? 'text-[#0b172a] font-bold' : 'text-slate-400'"
         >
           <div class="p-1.5 rounded-xl transition-all duration-300" :class="route.name === 'items' ? 'bg-blue-50' : ''">
-            <svg class="w-5 h-5" :class="route.name === 'items' ? 'text-blue-600' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+            🛒
           </div>
-          <span>তালিকা</span>
+          <span>বাজার পরিকল্পনা</span>
         </button>
+
+
 
         <button
           @click="showMenu = true"
@@ -191,27 +193,28 @@ onMounted(async () => {
         </div>
         
         <div class="flex-1 py-2 overflow-y-auto">
-          <button @click="goTo('/')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'input' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
+          <!-- <button @click="goTo('/')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'input' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
             <span class="text-lg">✚</span> নতুন ক্রয় এন্ট্রি
-          </button>
+          </button> -->
           <button @click="goTo('/today')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'today' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
             <span class="text-lg">🧾</span> আজকের মেমো
+          </button>
+          <button @click="goTo('/purchase-plan')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'purchase-plan' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
+            <span class="text-lg">🛒</span> বাজার পরিকল্পনা
           </button>
           <button @click="goTo('/items')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'items' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
             <span class="text-lg">📦</span> পণ্য ও সাপ্লায়ার
           </button>
           <button @click="goTo('/dashboard')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'dashboard' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
-            <span class="text-lg">📊</span> ড্যাশবোর্ড ও রিপোর্ট
+            <span class="text-lg">📊</span> ড্যাশবোর্ড
           </button>
           <button @click="goTo('/report')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'report' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
-            <span class="text-lg">📈</span> রিপোর্ট ও অ্যানালাইসিস
+            <span class="text-lg">📈</span> রিপোর্ট 
           </button>
           <button @click="goTo('/cost-control')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'cost-control' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
             <span class="text-lg">⚖️</span> কস্ট কন্ট্রোল
           </button>
-          <button @click="goTo('/purchase-plan')" class="w-full text-left px-5 py-3 flex items-center gap-3 text-slate-700 hover:bg-slate-50 font-medium" :class="route.name === 'purchase-plan' ? 'bg-emerald-50 text-emerald-700 border-r-4 border-emerald-500' : ''">
-            <span class="text-lg">🛒</span> বাজার পরিকল্পনা
-          </button>
+
 
           <div class="border-t border-slate-200 my-2" v-if="profile?.role === 'admin' || profile?.role === 'superadmin'"></div>
 

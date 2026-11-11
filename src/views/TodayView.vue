@@ -206,6 +206,24 @@ function openDraft(draft) {
   showDraftModal.value = true
 }
 
+
+
+// 🔥 দর পরিবর্তন করলে মোট আপডেট হবে
+function updateDraftPrice(p) {
+  const qty = Number(p.quantity) || 1
+  const price = Number(p.max_price) || 0
+  p.line_total = +(qty * price).toFixed(2)
+}
+
+// 🔥 মোট পরিবর্তন করলে দর আপডেট হবে
+function updateDraftTotal(p) {
+  const qty = Number(p.quantity) || 1
+  const total = Number(p.line_total) || 0
+  p.max_price = +(total / qty).toFixed(2)
+}
+
+
+
 // 🔥 ড্রাফট ডিলিট (Undo সহ)
 function handleDeleteDraftItem(itemName, index) {
   playSound('delete')
@@ -454,13 +472,28 @@ onMounted(async () => {
                   <p class="text-[8px] text-slate-400">{{ p.unit }}</p>
                 </div>
                 <div class="col-span-2">
-                  <input v-model="p.quantity" type="number" class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-center font-bold outline-none" />
+                  <input 
+                    v-model="p.quantity" 
+                    @input="updateDraftPrice(p)" 
+                    type="number" 
+                    class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-center font-bold outline-none" 
+                  />
                 </div>
                 <div class="col-span-2">
-                  <input v-model="p.max_price" type="number" class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-right font-bold outline-none" />
+                  <input 
+                    v-model="p.max_price" 
+                    @input="updateDraftPrice(p)" 
+                    type="number" 
+                    class="w-full h-7 px-0.5 border border-slate-300 rounded text-[10px] text-right font-bold outline-none" 
+                  />
                 </div>
                 <div class="col-span-3">
-                  <input v-model="p.line_total" type="number" class="w-full h-7 px-0.5 border border-amber-300 bg-amber-50 rounded text-[10px] text-right font-bold text-amber-900 outline-none" />
+                  <input 
+                    v-model="p.line_total" 
+                    @input="updateDraftTotal(p)" 
+                    type="number" 
+                    class="w-full h-7 px-0.5 border border-amber-300 bg-amber-50 rounded text-[10px] text-right font-bold text-amber-900 outline-none" 
+                  />
                 </div>
                 <div class="col-span-1 text-right">
                   <button @click="handleDeleteDraftItem(p.item_name, draftItems.indexOf(p))" class="text-red-400 text-sm">✕</button>
