@@ -16,6 +16,27 @@ const items = ref([])
 const purchases = ref([])
 const suppliersList = ref([])
 const planList = ref([])
+
+const showStoreModal = ref(false)
+const editingGroupItems = ref([]) // কোন স্টোরের পণ্যগুলো এডিট হচ্ছে
+
+// এডিট বাটনে ক্লিক করলে
+function openStoreModal(group) {
+  editingGroupItems.value = group.items
+  showStoreModal.value = true
+}
+
+// নতুন স্টোর সিলেক্ট করলে
+function applyNewStore(newStore) {
+  playSound('click')
+  editingGroupItems.value.forEach(item => {
+    item.supplier = newStore
+  })
+  // গ্রুপিং আপডেট করার জন্য বাধ্য করা
+  planList.value = [...planList.value]
+  showStoreModal.value = false
+}
+
 const searchQuery = ref('')
 const toast = ref('')
 const isDownloading = ref(false)
@@ -33,6 +54,13 @@ function updateQty(p, delta) {
   const next = Math.max(1, current + delta)
   p.quantity = next
   playSound()
+}
+
+// 🔥 স্টোর পরিবর্তন হলে সাথে সাথে আপডেট করার ফাংশন
+function onStoreChange(item, event) {
+  item.supplier = event.target.value
+  // গ্রুপিং নতুন করে হিসাব করার জন্য (Vue কে বাধ্য করা)
+  planList.value = [...planList.value] 
 }
 
 function getActiveRestaurantId() {
@@ -105,27 +133,39 @@ async function deleteDraft(id) {
   showToast('✅ ড্রাফট মুছে ফেলা হয়েছে')
 }
 
-const cheapestSuppliers = computed(() => {
+// 🔥 প্রতি পণ্যের শেষ কেনা স্টোর বের করার লজিক
+const lastSuppliers = computed(() => {
   const grouped = {}
+  // purchases ডেটা আগে থেকেই ডেট অনুযায়ী সাজানো আছে
   purchases.value.forEach(p => {
-    if (!grouped[p.item_name]) grouped[p.item_name] = {}
-    if (!grouped[p.item_name][p.supplier]) grouped[p.item_name][p.supplier] = { sum: 0, count: 0 }
-    grouped[p.item_name][p.supplier].sum += Number(p.unit_price)
-    grouped[p.item_name][p.supplier].count += 1
-  })
-
-  const result = {}
-  for (const [item, supData] of Object.entries(grouped)) {
-    let bestSup = null
-    let minAvg = Infinity
-    for (const [sup, data] of Object.entries(supData)) {
-      const avg = data.sum / data.count
-      if (avg < minAvg) { minAvg = avg; bestSup = sup }
+    if (p.item_name && p.supplier) {
+      grouped[p.item_name] = p.supplier // সবচেয়ে শেষের ভ্যালুটিই থেকে যাবে
     }
-    result[item] = { supplier: bestSup, avgPrice: minAvg }
-  }
-  return result
+  })
+  return grouped
 })
+
+function addToPlan(item) {
+  playSound()
+  const exists = planList.value.find(p => p.item_name === item.name)
+  if (exists) return showToast('পণ্যটি ইতিমধ্যেই তালিকায় আছে!')
+  
+  // 🔥 শেষ স্টোরের নাম খোঁজা হচ্ছে
+  const lastStore = lastSuppliers.value[item.name] || ''
+  const validStore = suppliersList.value.find(s => s.name === lastStore) ? lastStore : (suppliersList.value[0]?.name || '')
+  
+  planList.value.push({
+    item_name: item.name,
+    unit: item.default_unit,
+    quantity: 1,
+    original_price: item.last_price || 0,
+    max_price: item.last_price || 0,
+    supplier: validStore // 🔥 এখানে শেষ স্টোর সেট হলো
+  })
+}
+
+
+
 
 const filteredItems = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -140,21 +180,10 @@ const filteredItems = computed(() => {
   return availableItems.filter(i => i.name.toLowerCase().includes(q))
 })
 
-function addToPlan(item) {
-  playSound()
-  const exists = planList.value.find(p => p.item_name === item.name)
-  if (exists) return showToast('পণ্যটি ইতিমধ্যেই তালিকায় আছে!')
-  
-  const cheapest = cheapestSuppliers.value[item.name] || {}
-  planList.value.push({
-    item_name: item.name,
-    unit: item.default_unit,
-    quantity: 1,
-    original_price: item.last_price || cheapest.avgPrice || 0,
-    max_price: item.last_price || cheapest.avgPrice || 0,
-    supplier: cheapest.supplier || suppliersList.value[0]?.name || ''
-  })
-}
+
+
+
+
 
 function deleteItem(id) {
   playSound('delete')
@@ -201,19 +230,11 @@ const sortedPlanList = computed(() => {
 const groupedPlanList = computed(() => {
   const map = new Map()
   
-  // ডেটাবেজে থাকা বৈধ সাপ্লায়ারদের নামের লিস্ট
-  const validSupplierNames = suppliersList.value.map(s => s.name.toLowerCase().trim())
-
   sortedPlanList.value.forEach(item => {
-    let supName = item.supplier ? String(item.supplier).trim() : ''
-    
-    // 🔥 যদি দোকানের নাম ডেটাবেজে না থাকে (মানে ডিলিট হয়ে গেছে), তবে সাপ্লায়ার ছাড়া হিসেবে ধরা হবে
-    if (supName !== '' && !validSupplierNames.includes(supName.toLowerCase())) {
-      supName = ''
-      item.supplier = '' // পণ্যের ভেতরের ডেটাও খালি করে দিচ্ছি
-    }
-
-    const key = supName !== '' ? supName : 'সাপ্লায়ার ছাড়া'
+    // যদি সাপ্লায়ার থাকে তবে সেটাই নেব, নাহলে সাপ্লায়ার ছাড়া
+    const key = item.supplier && String(item.supplier).trim() !== '' 
+                ? String(item.supplier).trim() 
+                : 'সাপ্লায়ার ছাড়া'
     
     if (!map.has(key)) {
       map.set(key, { supplier: key, items: [] })
@@ -388,14 +409,14 @@ onMounted(loadData)
                 
                 <!-- 🔥 মিনি Store Selector (পণ্যের নামের পাশে) -->
                 <div class="relative flex items-center shrink-0">
-                  <select 
-                    v-model="p.supplier" 
-                    class="w-[55px] text-[9px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 outline-none truncate appearance-none cursor-pointer"
-                  >
-                    <option value="">সাপ্লায়ার নেই</option>
-                    <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
-                  </select>
-                  <!-- ড্রপডাউনের অ্যারো আইকন -->
+                <select 
+                  :value="suppliersList.some(s => s.name === p.supplier) ? p.supplier : ''"
+                  @change="onStoreChange(p, $event)"
+                  class="w-[85px] text-[9px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1 py-0.5 outline-none truncate appearance-none cursor-pointer"
+                >
+                  <option value="">সাপ্লায়ার নেই</option>
+                  <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
+                </select>
                   <span class="absolute right-1 top-1/2 -translate-y-1/2 text-blue-500 text-[8px] pointer-events-none">▼</span>
                 </div>
               </div>

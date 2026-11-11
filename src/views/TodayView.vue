@@ -224,6 +224,39 @@ function updateDraftTotal(p) {
   p.max_price = +(total / qty).toFixed(2)
 }
 
+// 🔥 পপআপে স্টোর পরিবর্তন করার ফাংশন
+// function changeDraftSupplier(item, newSupplier) {
+//   // ১. আইটেমের সাপ্লায়ার আপডেট করা
+//   item.supplier = newSupplier
+  
+//   // ২. নতুন সাপ্লায়ারের জন্য Paid অটো-ফিল করা
+//   const key = newSupplier || '— সাপ্লায়ার ছাড়া —'
+//   if (!draftSupplierPaid.value[key]) {
+//     // নতুন স্টোরের মোট কত হলো তা হিসাব করা
+//     const groupTotal = draftItems.value
+//       .filter(p => (p.supplier || '— সাপ্লায়ার ছাড়া —') === key)
+//       .reduce((s, p) => s + (Number(p.line_total) || 0), 0)
+    
+//     draftSupplierPaid.value[key] = groupTotal
+//   }
+// }
+
+
+function changeDraftSupplier(item, newSupplier) {
+  item.supplier = newSupplier
+  
+  // 🔥 ড্রাফট পপআপে গ্রুপিং আপডেট করার জন্য
+  draftItems.value = [...draftItems.value]
+  
+  const key = newSupplier || '— সাপ্লায়ার ছাড়া —'
+  if (!draftSupplierPaid.value[key]) {
+    const groupTotal = draftItems.value
+      .filter(p => (p.supplier || '— সাপ্লায়ার ছাড়া —') === key)
+      .reduce((s, p) => s + (Number(p.line_total) || 0), 0)
+    
+    draftSupplierPaid.value[key] = groupTotal
+  }
+}
 
 
 // 🔥 ড্রাফট ডিলিট (Undo সহ)
@@ -262,9 +295,13 @@ async function confirmDraft() {
     if (p.line_total !== undefined && p.line_total !== null && p.line_total !== '') {
       finalTotal = Number(p.line_total)
     }
-    let finalUnitPrice = originalPrice
-    if (p.line_total !== '') { finalUnitPrice = finalTotal / qty }
 
+    let finalUnitPrice = originalPrice
+    if (p.line_total !== '') {
+      finalUnitPrice = finalTotal / qty
+    }
+
+    // 🔥 দোকানের বাকি থেকে আইটেমের বাকি হিসাব করা
     const supplierKey = p.supplier || '— সাপ্লায়ার ছাড়া —'
     const group = draftGroups.value.find(g => g.supplier === supplierKey)
     let itemDue = 0
@@ -272,6 +309,7 @@ async function confirmDraft() {
       itemDue = (group.due * finalTotal) / group.total
     }
 
+    // 🔥 return এর ভেতরে supplier যোগ করা হলো
     return {
       item_name: p.item_name,
       quantity: qty,
@@ -280,31 +318,23 @@ async function confirmDraft() {
       total_price: +finalTotal.toFixed(2),     
       paid_amount: +(finalTotal - itemDue).toFixed(2),
       due_amount: +itemDue.toFixed(2),
-      supplier: p.supplier || null,
+      supplier: p.supplier && String(p.supplier).trim() !== '' ? String(p.supplier).trim() : null,
       note: null,
-      purchase_date: draftSaveDate.value,
+      purchase_date: draftSaveDate.value, // অথবা selectedDate.value
       status: 'pending',
       restaurant_id: getActiveRestaurantId()
     }
   })
 
   const { error } = await supabase.from('purchases').insert(rowsToInsert)
-  if (error) { showToast('সেভ হয়নি: ' + error.message); saving.value = false; return }
-
-  await supabase.from('purchase_drafts').delete().eq('id', selectedDraftId.value)
-
-
-  for (const p of draftItems.value) {
-    const newPrice = Number(p.max_price) || 0
-    if (newPrice > 0) {
-      await supabase
-        .from('items')
-        .update({ last_price: newPrice })
-        .eq('restaurant_id', getActiveRestaurantId())
-        .eq('name', p.item_name)
-    }
+  if (error) { 
+    showToast('সেভ হয়নি: ' + error.message)
+    saving.value = false
+    return 
   }
 
+  await supabase.from('purchase_drafts').delete().eq('id', selectedDraftId.value)
+  
   await load()
   await loadDrafts()
   
@@ -381,14 +411,33 @@ onMounted(async () => {
       </div>
 
       <div v-for="g in groups" :key="g.supplier">
-        <div class="flex items-center justify-between gap-2 px-2.5 py-2 bg-emerald-50/60 border-y border-emerald-100">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-[11px] text-emerald-700 shrink-0">📍</span>
-            <span class="text-[12px] font-semibold text-emerald-800 truncate">{{ g.supplier }}</span>
+        <div class="flex items-center justify-between px-2 py-1.5 bg-slate-200 rounded-t-lg">
+          
+          <!-- বাম দিকে সাপ্লায়ার ড্রপডাউন -->
+          <div class="flex-1 min-w-0 pr-2">
+            <select 
+              :value="suppliersList.some(s => s.name === g.supplier) ? g.supplier : ''"
+              @change="changeDraftSupplier(g.list[0], $event.target.value)"
+              class="w-full max-w-[150px] text-[11px] font-bold text-slate-700 bg-transparent outline-none truncate cursor-pointer appearance-none"
+            >
+              <option value="">— সাপ্লায়ার ছাড়া —</option>
+              <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
+            </select>
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            <a v-if="phoneOf(g.supplier)" :href="`tel:${phoneOf(g.supplier)}`" class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 font-medium active:scale-95">📞 কল</a>
-            <span class="text-[10px] text-slate-400">{{ g.list.length }} আইটেম</span>
+
+          <!-- ডান দিকে কল বাটন ও সংখ্যা -->
+          <div class="flex items-center gap-2 shrink-0">
+            <a 
+              v-if="phoneOf(g.supplier)" 
+              :href="`tel:${phoneOf(g.supplier)}`" 
+              class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center active:scale-95 shadow-sm"
+              title="কল দিন"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+              </svg>
+            </a>
+            <p class="text-[10px] text-slate-600 font-bold">{{ g.list.length }} টি পণ্য</p>
           </div>
         </div>
 
