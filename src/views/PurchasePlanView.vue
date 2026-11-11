@@ -194,6 +194,22 @@ const sortedPlanList = computed(() => {
   })
 })
 
+const groupedPlanList = computed(() => {
+  const map = new Map()
+  
+  // sortedPlanList ব্যবহার করছি, যাতে দোকান অনুযায়ী আগে থেকেই সাজানো থাকে
+  sortedPlanList.value.forEach(item => {
+    const key = item.supplier || 'সাপ্লায়ার ছাড়া'
+    if (!map.has(key)) map.set(key, [])
+    map.get(key).push(item)
+  })
+  
+  return [...map.entries()].map(([supplier, items]) => ({
+    supplier,
+    items
+  }))
+})
+
 const savingDraft = ref(false)
 async function savePlan() {
   if (!planList.value.length) return showToast('তালিকাটি খালি!')
@@ -293,9 +309,13 @@ onMounted(loadData)
     </div>
 
     <!-- Plan List -->
+    <!-- Plan List (Grouped by Store & Single Line UI) -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-        <p class="text-[12px] font-bold text-slate-800">আমার বাজারের তালিকা</p>
+      
+      <div class="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <p class="text-[12px] font-bold text-slate-800 flex items-center gap-1.5">
+          🛒 আমার বাজারের তালিকা
+        </p>
         <span class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">{{ planList.length }} টি</span>
       </div>
 
@@ -304,68 +324,82 @@ onMounted(loadData)
         <p class="text-[12px] text-slate-500">পণ্য যোগ করে বাজার শুরু করুন</p>
       </div>
 
-      <div class="divide-y divide-slate-100 bg-white">
-        <SwipeToDelete 
-          v-for="p in sortedPlanList" 
-          :key="p.item_name" 
-          :id="p.item_name"
-          @delete="deleteItem"
-          @undo="undoDeleteItem"
-        >
-          <div class="p-2.5 grid grid-cols-12 gap-1.5 items-center">
-            <div class="col-span-5">
-              <p class="text-[12px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
-              <div class="flex items-center gap-1 mt-0.5">
-                <button @click="updateQty(p, -1)" class="w-5 h-5 bg-slate-100 rounded text-slate-600 font-bold flex items-center justify-center active:bg-slate-200">-</button>
-                <input v-model="p.quantity" type="number" class="w-8 text-center text-[10px] font-bold border border-slate-200 rounded outline-none" />
-                <button @click="updateQty(p, 1)" class="w-5 h-5 bg-slate-100 rounded text-slate-600 font-bold flex items-center justify-center active:bg-slate-200">+</button>
-                <span class="text-[9px] text-slate-500 ml-0.5">{{ p.unit }}</span>
-              </div>
-            </div>
-
-            <div class="col-span-4">
-              <select v-model="p.supplier" class="w-full h-7 px-1 rounded border border-slate-200 bg-slate-50 text-[9px] outline-none truncate">
-                <option value="">সাপ্লায়ার নেই</option>
-                <option v-for="s in suppliersList" :key="s.id" :value="s.name">{{ s.name }}</option>
-              </select>
-            </div>
-
-            <div class="col-span-3 text-right">
-              <span class="text-[8px] text-slate-400 mr-0.5">৳</span>
-              <input v-model="p.max_price" type="number" class="w-12 text-right border-b border-slate-300 font-bold text-[12px] outline-none bg-transparent" />
-            </div>
+      <div class="bg-white">
+        <!-- 🔥 দোকান অনুযায়ী গ্রুপিং -->
+        <div v-for="(group, gIdx) in groupedPlanList" :key="gIdx" class="mb-1">
+          
+          <!-- স্টোরের নাম (হেডার) -->
+          <div class="px-3 py-1.5 bg-slate-100 border-y border-slate-200 flex justify-between items-center">
+            <p class="text-[10px] font-bold text-slate-600">📍 {{ group.supplier }}</p>
+            <p class="text-[9px] text-slate-500">{{ group.items.length }} টি পণ্য</p>
           </div>
-        </SwipeToDelete>
+
+          <!-- পণ্যের লিস্ট -->
+          <div class="divide-y divide-slate-50">
+            <SwipeToDelete 
+              v-for="p in group.items" 
+              :key="p.item_name" 
+              :id="p.item_name"
+              @delete="deleteItem"
+              @undo="undoDeleteItem"
+            >
+              <div class="px-3 py-2 flex items-center justify-between gap-2 bg-white">
+                
+                <!-- বাম দিক: পণ্যের নাম ও একক -->
+                <div class="flex-1 min-w-0 flex items-center gap-1">
+                  <p class="text-[12px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
+                  <span class="text-[9px] font-normal text-slate-400 shrink-0">({{ p.unit }})</span>
+                </div>
+
+                <!-- ডান দিক: পরিমাণ, দর, মোট -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                  
+                  <!-- পরিমাণ -->
+                  <div class="flex items-center border border-slate-200 rounded bg-slate-50 overflow-hidden h-6">
+                    <button @click="updateQty(p, -1)" class="w-5 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-200">-</button>
+                    <input v-model="p.quantity" type="number" class="w-6 text-center text-[10px] font-bold bg-transparent outline-none" />
+                    <button @click="updateQty(p, 1)" class="w-5 h-full flex items-center justify-center text-slate-500 font-bold active:bg-slate-200">+</button>
+                  </div>
+
+                  <!-- দর -->
+                  <div class="flex items-center justify-end w-10">
+                    <input v-model="p.max_price" type="number" class="w-full text-right font-medium text-[11px] text-slate-600 bg-transparent outline-none border-b border-slate-300" />
+                  </div>
+
+                  <!-- 🔥 লাইন মোট (Line Total) -->
+                  <div class="text-right w-12">
+                    <p class="text-[11px] font-bold text-slate-800">
+                      ৳{{ fmt((Number(p.max_price) || 0) * (Number(p.quantity) || 0)) }}
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+            </SwipeToDelete>
+          </div>
+        </div>
       </div>
 
       <!-- Total & Actions Section -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden mt-2">
-        
-        <!-- টোটাল -->
-        <div class="p-4 bg-[#0b172a] text-white flex justify-between items-center">
+      <div class="p-3 bg-[#0b172a] text-white">
+        <div class="flex justify-between items-center mb-3">
           <div>
-            <p class="text-[11px] text-white/60 mb-0.5">সম্ভাব্য সর্বোচ্চ খরচ</p>
-            <p class="text-[12px] font-medium text-emerald-300">(দাম কিছুটা কম হতে পারে)</p>
+            <p class="text-[11px] font-bold text-white/80">সম্ভাব্য সর্বোচ্চ খরচ</p>
+            <p class="text-[9px] text-white/50">(দাম কিছুটা কম হতে পারে)</p>
           </div>
-          <p class="text-[22px] font-bold text-emerald-400">৳ {{ fmt(totalEstCost) }}</p>
+          <p class="text-[20px] font-bold text-emerald-400">৳ {{ fmt(totalEstCost) }}</p>
         </div>
-
+        
         <!-- বাটনসমূহ -->
-        <div class="p-3 bg-slate-50 border-t border-slate-200 flex gap-2">
-          <!-- কপি বাটন -->
-          <button @click="copyAsText" class="w-12 h-11 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center active:scale-95 text-lg shrink-0">
+        <div class="flex gap-2">
+          <button @click="copyAsText" class="w-11 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center active:scale-95 text-sm shrink-0">
             📋
           </button>
-          
-          <!-- ডাউনলোড বাটন -->
-          <button @click="downloadImage" :disabled="isDownloading" class="w-12 h-11 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center active:scale-95 text-lg shrink-0 disabled:opacity-50">
+          <button @click="downloadImage" :disabled="isDownloading" class="w-11 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center active:scale-95 text-sm shrink-0 disabled:opacity-50">
             📥
           </button>
-
-          <!-- সেভ বাটন -->
-          <button @click="savePlan" :disabled="savingDraft || !planList.length" class="flex-1 h-11 bg-emerald-600 text-white rounded-lg shadow-sm flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 font-bold text-[14px]">
-            <span class="text-base">💾</span> 
-            {{ savingDraft ? 'সেভ হচ্ছে...' : 'সেভ করুন' }}
+          <button @click="savePlan" :disabled="savingDraft || !planList.length" class="flex-1 h-10 bg-emerald-500 text-white rounded-lg flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 font-bold text-[13px]">
+            <span class="text-base">💾</span> {{ savingDraft ? 'সেভ হচ্ছে...' : 'সেভ করুন' }}
           </button>
         </div>
       </div>
@@ -432,53 +466,73 @@ onMounted(loadData)
     </transition>
   </div>
 
+
+
   <!-- Hidden Image Render Area -->
-  <div class="fixed -left-[9999px] top-0">
-    <div ref="printArea" class="w-[380px] bg-white p-4 font-sans text-black">
-      <div class="text-center mb-3">
-        <h1 class="text-[18px] font-bold text-slate-800">বাজারের তালিকা</h1>
-        <p class="text-[10px] text-slate-500 mt-0.5">তারিখ: {{ new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) }}</p>
+    <div class="fixed -left-[9999px] top-0">
+  <!-- 🔥 প্রস্থ ৩৬০px করা হলো যাতে ডানদিকের লেখা না কাটে -->
+  <div ref="printArea" class="w-[360px] bg-white p-4 font-sans text-black">
+    
+    <!-- হেডার -->
+    <div class="text-center border-b-2 border-slate-800 pb-2 mb-3">
+      <h1 class="text-[16px] font-black uppercase tracking-wider text-slate-900">বাজারের তালিকা</h1>
+      <p class="text-[9px] text-slate-600 mt-0.5">তারিখ: {{ new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) }}</p>
+    </div>
+
+    <!-- দোকান অনুযায়ী গ্রুপ -->
+        <!-- দোকান অনুযায়ী গ্রুপ -->
+    <div v-for="(group, gIdx) in groupedPlanList" :key="gIdx" class="mb-2">
+      
+      <!-- 🔥 Store Header (একদম মাঝখানে, কোনো বাড়তি স্পেস ছাড়া) -->
+      <div class="bg-blue-50 px-2.5 py-1.5 rounded-t-md border-b border-blue-200 flex items-center justify-between w-full">
+        <span class="pb-1 flex-1 min-w-0 text-[11px] font-bold text-blue-900 leading-none">
+          {{ group.supplier }}
+        </span>
+        <span class="shrink-0 ml-2 text-[9px] text-blue-700 leading-none">
+          {{ group.items.length }} টি
+        </span>
       </div>
 
-      <table class="w-full border-collapse text-left">
-        <thead>
-          <tr class="border-b-2 border-slate-800 bg-slate-50">
-            <th class="py-1.5 px-1 text-[11px] font-bold">পণ্য</th>
-            <th class="py-1.5 px-1 text-[11px] font-bold text-center">পরিমাণ</th>
-            <th class="py-1.5 px-1 text-[11px] font-bold">দোকান</th>
-            <th class="py-1.5 px-1 text-[11px] font-bold text-right">সর্বোচ্চ দর</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(p, i) in sortedPlanList" :key="i" class="border-b border-slate-300 border-dashed">
-            <td class="py-1.5 px-1">
-              <div class="flex items-center gap-1.5">
-                <div class="w-3.5 h-3.5 rounded-full border border-slate-400 shrink-0"></div>
-                <div class="flex flex-col justify-center leading-tight">
-                  <span class="text-[12px] font-bold text-slate-800">{{ p.item_name }}</span>
-                  <span v-if="p.max_price" class="text-[8px] font-medium text-slate-500">({{ p.unit }} ৳{{ p.max_price }})</span>
-                </div>
-              </div>
-            </td>
-            <td class="py-1.5 px-1 text-[11px] font-medium text-slate-700 text-center align-middle">
-              {{ p.quantity }} {{ p.unit }}
-            </td>
-            <td class="py-1.5 px-1 text-[11px] font-medium text-slate-700 align-middle truncate max-w-[90px]">
-              {{ p.supplier || '—' }}
-            </td>
-            <td class="py-1.5 px-1 text-[12px] font-bold text-slate-900 text-right align-middle">
-              ৳ {{ fmt(p.max_price * p.quantity) }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <!-- পণ্যের লিস্ট -->
+      <div class="flex flex-col">
+        <div v-for="(p, i) in group.items" :key="i" class="flex items-center justify-between py-1.5 px-2 border-b border-dashed border-slate-200 last:border-0">
+          
+          <!-- বাম দিক: পণ্যের নাম ও দর -->
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            
+            
+            <div class="flex items-center gap-1 min-w-0">
+              <span class="flex-1 min-w-0 text-[11px] font-bold text-slate-800 leading-none">
+                {{ p.item_name }}
+              </span>
+              <span v-if="Number(p.max_price) > 0" class="text-[8px] text-slate-500 whitespace-nowrap leading-none">
+                ({{ p.quantity }} {{ p.unit }} ৳{{ p.max_price }})
+              </span>
+              <span v-else class="text-[8px] text-slate-500 whitespace-nowrap leading-none">
+                ({{ p.quantity }} {{ p.unit }})
+              </span>
+            </div>
+          </div>
 
-      <div class="mt-4 pt-2 border-t-2 border-slate-800 flex justify-between items-center">
-        <span class="text-[13px] font-bold">মোট:</span>
-        <span class="text-[16px] font-black">৳ {{ fmt(totalEstCost) }}</span>
+          <!-- ডান দিক: মোট দাম -->
+          <div class="text-[11px] font-bold text-slate-900 whitespace-nowrap ml-2 leading-none">
+            ৳ {{ fmt((Number(p.max_price) || 0) * (Number(p.quantity) || 0)) }}
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- ফুটার (মোট) -->
+    <div class="mt-4 pt-2 border-t-2 border-slate-800 border-dashed flex justify-between items-center">
+      <span class="text-[12px] font-bold">সর্বমোট:</span>
+      <span class="text-[16px] font-black">৳ {{ fmt(totalEstCost) }}</span>
+    </div>
+    
+    <div class="mt-2 text-center">
+      <p class="text-[7px] text-slate-400">Generated by RCR</p>
+    </div>
   </div>
+</div>
 </template>
 
 <style scoped>
