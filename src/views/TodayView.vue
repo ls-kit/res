@@ -466,6 +466,14 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- হেডার (ডেট পিকারের নিচে, টেবিলের ঠিক উপরে) -->
+      <div class="grid grid-cols-12 gap-1 px-2 py-1.5 bg-slate-100 border-b border-slate-200 text-[9px] font-bold text-slate-500 rounded-t-lg">
+        <div class="col-span-5">পণ্য</div>
+        <div class="col-span-2 text-center">পরিমাণ</div>
+        <div class="col-span-2 text-right">দর (৳)</div>
+        <div class="col-span-3 text-right pr-1">মোট (৳)</div>
+      </div>
+
       <div class="p-2 overflow-auto flex-1 bg-slate-50 relative">
         
         <!-- দোকান অনুযায়ী গ্রুপ -->
@@ -488,19 +496,18 @@ onMounted(async () => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
               </svg>
             </a>
-            <p class="text-[10px] text-slate-600 font-bold">{{ g.list.length }} টি</p>
+            <p class="text-[10px] text-slate-600 font-bold">{{ g.list.length }} টি পন্য</p>
           </div>
         </div>
 
-          <div class="grid grid-cols-12 gap-1 px-1 py-1 bg-slate-100 text-[9px] font-bold text-slate-500 border-b border-slate-200">
-            <div class="col-span-4">পণ্য</div>
-            <div class="col-span-2 text-center">পরিমাণ</div>
-            <div class="col-span-2 text-right">দর</div>
-            <div class="col-span-3 text-right">মোট</div>
-            <div class="col-span-1"></div>
-          </div>
+        <!-- <div class="grid grid-cols-12 gap-1 px-1 py-1 bg-slate-100 text-[9px] font-bold text-slate-500 border-b border-slate-200">
+          <div class="col-span-5">পণ্য</div>
+          <div class="col-span-2 text-center">পরিমাণ</div>
+          <div class="col-span-2 text-right">দর</div>
+          <div class="col-span-3 text-right pr-1">মোট</div>
+        </div> -->
 
-                    <div class="space-y-0.5 mt-0.5">
+          <div class="space-y-0.5 mt-0.5">
             <SwipeToDelete 
               v-for="(p, i) in g.list" 
               :key="i" 
@@ -509,13 +516,16 @@ onMounted(async () => {
             >
               <div class="grid grid-cols-12 gap-1 items-center bg-white p-1.5 shadow-sm">
                 
-                <!-- পণ্যের নাম -->
-                <div class="col-span-3 min-w-0">
-                  <p class="text-[11px] font-bold text-slate-800 truncate">{{ p.item_name }}</p>
-                  <p class="text-[8px] text-slate-400">{{ p.unit }}</p>
+                <!-- পণ্যের নাম (col-span-4) -->
+                <!-- পণ্যের নাম ও একক এক লাইনে -->
+                <div class="col-span-5 min-w-0">
+                  <p class="text-[11px] font-bold text-slate-800 truncate">
+                    {{ p.item_name }}
+                    <span class="text-[10px] font-normal text-slate-400 ml-0.5 inline-block scale-75 origin-left">({{ p.unit }})</span>
+                  </p>
                 </div>
 
-                <!-- পরিমাণ -->
+                <!-- পরিমাণ (col-span-2) -->
                 <div class="col-span-2">
                   <input 
                     v-select-on-focus 
@@ -526,7 +536,7 @@ onMounted(async () => {
                   />
                 </div>
 
-                <!-- দর (Price) -->
+                <!-- দর (col-span-2) -->
                 <div class="col-span-2">
                   <input 
                     v-select-on-focus 
@@ -537,7 +547,7 @@ onMounted(async () => {
                   />
                 </div>
 
-                <!-- মোট (Line Total) -->
+                <!-- মোট (col-span-4) -->
                 <div class="col-span-3">
                   <input 
                     v-select-on-focus 
@@ -548,37 +558,42 @@ onMounted(async () => {
                   />
                 </div>
 
-                <!-- ডিলিট বাটন -->
-                <div class="col-span-2 text-right">
-                  <button @click="handleDeleteDraftItem(p.item_name, draftItems.indexOf(p))" class="text-red-400 text-sm">✕</button>
-                </div>
-
               </div>
             </SwipeToDelete>
           </div>
 
           <!-- 🔥 সাবটোটাল, পরিশোধ ও বাকি (এক লাইনে) -->
-          <div class="bg-slate-100 rounded-b-lg p-2 mt-0.5 border-t border-slate-200 flex items-center justify-between gap-1 text-[10px]">
-            <div class="font-bold text-slate-700 shrink-0">
-              সাব: ৳{{ fmt(g.total) }}
+          <div class="scale-95 bg-slate-100 rounded-b-lg p-1 mt-0.5 border-t border-slate-200 flex items-center justify-between gap-1 text-[9px]">
+            
+            <!-- সাবটোটাল -->
+            <div class="font-bold text-slate-600 shrink-0">
+              সাব: <span class="text-slate-800">৳{{ fmt(g.total) }}</span>
             </div>
+
             <!-- পরিশোধ (Paid) -->
             <div 
-              class="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5 shrink-0 transition-all duration-300"
+              class="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 shrink-0 transition-all duration-300"
               :class="paidHighlight[g.supplier] ? 'ring-2 ring-amber-400 bg-amber-50 scale-105' : ''"
             >
+              <span class="text-[9px] text-emerald-700 font-bold">পরিশোধ:</span>
               <span class="text-[9px] text-emerald-700 font-bold">৳</span>
               <input 
                 v-select-on-focus 
                 v-model="draftSupplierPaid[g.supplier]" 
                 type="number" 
-                class="w-10 bg-transparent text-right text-[10px] font-bold text-emerald-800 outline-none" 
+                class="w-12 bg-transparent text-right text-[11px] font-bold text-emerald-800 outline-none" 
               />
-              <button @click="draftSupplierPaid[g.supplier] = String(g.total)" class="text-[8px] bg-emerald-600 text-white px-1 py-0.5 rounded active:scale-95 shrink-0">সম্পূর্ণ</button>
+              <button @click="draftSupplierPaid[g.supplier] = String(g.total)" class="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded active:scale-95 shrink-0">সম্পূর্ণ</button>
             </div>
-            <div class="font-bold text-red-500 shrink-0 text-right">
-              বাকি: ৳{{ fmt(g.due) }}
+
+            <!-- বাকি (Due) -->
+            <div class="font-bold shrink-0 text-right">
+              <span class="text-slate-500">বাকি:</span>
+              <span :class="g.due > 0 ? 'text-red-500' : 'text-emerald-600'">
+                {{ g.due > 0 ? '(-৳' + fmt(g.due) + ')' : '(৳০)' }}
+              </span>
             </div>
+
           </div>
 
         </div>
@@ -596,14 +611,15 @@ onMounted(async () => {
         </div>
       </transition>
 
-      <!-- 🔥 পুরো বিলের মোট সামারি -->
-      <div class="p-3 bg-slate-800 text-white">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-[11px] text-white/70">মোট বিল:</span>
-          <span class="text-[14px] font-bold">৳ {{ fmt(draftTotal) }}</span>
+      <!-- 🔥 পুরো বিলের মোট সামারি (এক লাইনে) -->
+      <div class="p-3 bg-slate-800 text-white flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-lg border border-white/10">
+          <span class="text-[14px] text-white/70">মোট ও নগদ পরিশোধ:</span>
+          <span class="text-[14px] font-bold text-emerald-400">৳ {{ fmt(draftTotal) }}</span>
         </div>
-        <div class="flex justify-between items-center">
-          <span class="text-[11px] text-red-400">মোট বাকি:</span>
+        
+        <div class="flex items-center gap-1 bg-red-500/20 px-2 py-1 rounded-lg border border-red-500/30">
+          <span class="text-[10px] text-red-200">মোট বাকি:</span>
           <span class="text-[14px] font-bold text-red-400">৳ {{ fmt(draftTotalDue) }}</span>
         </div>
       </div>
